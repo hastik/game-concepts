@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Katalog herních konceptů</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #2E2220;
+            color: #F3E3C3;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+        
+        h1 {
+            color: #E0703A;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #E9A23B;
+            font-size: 1.1em;
+        }
+        
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .game-card {
+            background: #3A2825;
+            border: 2px solid #5A3825;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(224, 112, 58, 0.3);
+            border-color: #E0703A;
+        }
+        
+        .game-thumbnail {
+            width: 100%;
+            height: 180px;
+            background: #5A3825;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: #8A5A3B;
+        }
+        
+        .game-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .game-info {
+            padding: 20px;
+        }
+        
+        .game-title {
+            color: #F6C76B;
+            font-size: 1.4em;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .game-description {
+            color: #F3E3C3;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+        }
+        
+        .game-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .tag {
+            background: #5A3825;
+            color: #E9A23B;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            border: 1px solid #8A5A3B;
+        }
+        
+        .status {
+            background: #8A5A3B;
+            color: #F3E3C3;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .game-date {
+            color: #A8B58A;
+            font-size: 0.9em;
+            margin-bottom: 12px;
+        }
+        
+        .game-controls {
+            color: #C9837A;
+            font-size: 0.85em;
+            margin-bottom: 16px;
+            padding: 8px;
+            background: #2E2220;
+            border-radius: 4px;
+            border-left: 3px solid #E0703A;
+        }
+        
+        .play-button {
+            display: inline-block;
+            background: #E0703A;
+            color: #F3E3C3;
+            padding: 10px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        .play-button:hover {
+            background: #F6C76B;
+            color: #2E2220;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #8A5A3B;
+            border-top: 1px solid #5A3825;
+        }
+        
+        .instructions {
+            background: #3A2825;
+            border: 2px solid #5A3825;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .instructions h2 {
+            color: #E0703A;
+            margin-bottom: 12px;
+        }
+        
+        .instructions pre {
+            background: #2E2220;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #E9A23B;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Katalog herních konceptů</h1>
+            <p class="subtitle">Kolekce jednoduchých prototypů her v čistém JavaScriptu</p>
+        </header>
+        
+        <div class="instructions">
+            <h2>📝 Jak přidat novou hru</h2>
+            <p style="margin-bottom: 12px;">Pro přidání nové hry do katalogu:</p>
+            <ol style="margin-left: 20px; margin-bottom: 12px;">
+                <li>Vytvoř složku <code>games/&lt;slug&gt;/</code> s hlavním HTML souborem</li>
+                <li>Přidej <code>game.json</code> s metadaty</li>
+                <li>Volitelně přidej screenshot jako <code>screenshot.png</code></li>
+                <li>Aktualizuj seznam her níže v této stránce i v <code>games.json</code></li>
+            </ol>
+        </div>
+        
+        <div id="games-container" class="games-grid"></div>
+        
+        <footer>
+            <p>Všechny hry jsou self-contained prototypy v jednom HTML souboru</p>
+            <p>Repository: <a href="https://github.com/hastik/game-concepts" style="color: #E0703A;">hastik/game-concepts</a></p>
+        </footer>
+    </div>
+    
+    <script>
+        // HOW TO ADD A NEW GAME:
+        // 1. Create games/<slug>/<slug>.html with your game
+        // 2. Add an entry to this GAMES array below (keep in sync with games.json)
+        // 3. Add the same entry to games/games.json
+        // 4. Optionally add a screenshot as games/<slug>/screenshot.png
+        
+        const GAMES = [
+            {
+                "path": "cozy-cottage/",
+                "slug": "cozy-cottage",
+                "title": "Cozy Cottage",
+                "description": "Relaxační pixel-art hra v útulné chaloupce. Procházej se, zapal krb, přepínej den a noc a zařizuj interiér nábytkem a svíčkami. Kočka se toulá a spí v pelíšku.",
+                "file": "cozy-cottage.html",
+                "thumbnail": "screenshot.png",
+                "tags": ["cozy", "pixel-art", "decorating"],
+                "status": "prototyp",
+                "created": "2026-10-29",
+                "controls": "WASD/šipky chůze, E zařizování, N den/noc"
+            }
+        ];
+        
+        function renderGames() {
+            const container = document.getElementById('games-container');
+            
+            if (GAMES.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #8A5A3B;">Zatím nejsou žádné hry. Přidej první!</p>';
+                return;
+            }
+            
+            container.innerHTML = GAMES.map(game => {
+                const thumbnailPath = game.path + (game.thumbnail || 'screenshot.png');
+                const gamePath = game.path + game.file;
+                
+                return `
+                    <div class="game-card">
+                        <div class="game-thumbnail">
+                            <img src="${thumbnailPath}" alt="${game.title}" onerror="this.parentElement.innerHTML='🎮'">
+                        </div>
+                        <div class="game-info">
+                            <h3 class="game-title">${game.title}</h3>
+                            <p class="game-description">${game.description}</p>
+                            <div class="game-meta">
+                                <span class="status">${game.status}</span>
+                                ${game.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            </div>
+                            <div class="game-date">📅 ${game.created}</div>
+                            <div class="game-controls">🎮 ${game.controls}</div>
+                            <a href="${gamePath}" class="play-button">▶ Hrát</a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        renderGames();
+    </script>
+</body>
+</html>

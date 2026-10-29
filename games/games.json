@@ -1,0 +1,14 @@
+[
+  {
+    "path": "cozy-cottage/",
+    "slug": "cozy-cottage",
+    "title": "Cozy Cottage",
+    "description": "Relaxační pixel-art hra v útulné chaloupce. Procházej se, zapal krb, přepínej den a noc a zařizuj interiér nábytkem a svíčkami. Kočka se toulá a spí v pelíšku.",
+    "file": "cozy-cottage.html",
+    "thumbnail": "screenshot.png",
+    "tags": ["cozy", "pixel-art", "decorating"],
+    "status": "prototyp",
+    "created": "2026-10-29",
+    "controls": "WASD/šipky chůze, E zařizování, N den/noc"
+  }
+]
