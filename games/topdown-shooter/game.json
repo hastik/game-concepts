@@ -1,0 +1,17 @@
+{
+  "slug": "topdown-shooter",
+  "title": "Topdown Shooter",
+  "description": "Top-down shooter s viditelností a krokovým zvukem. WASD pohyb, myš míření, LMB střelba.",
+  "file": "topdownshooter1.html",
+  "tags": [
+    "shooter",
+    "top-down",
+    "vision",
+    "audio",
+    "experiment"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-20",
+  "controls": "WASD pohyb, myš míření, LMB střelba, R restart",
+  "thumbnail": "screenshot.png"
+}

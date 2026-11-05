@@ -1,0 +1,17 @@
+{
+  "slug": "randomshooter",
+  "title": "Random Shooter",
+  "description": "Neonový arcade shooter: mířiš, střílíš, přitahuješ gravitací a vypaluješ laser. Vlny nepřátel včetně léčitelů, tanků a mothership; shop s upgrady a stavbami.",
+  "file": "index.html",
+  "tags": [
+    "arcade",
+    "shooter",
+    "vlny",
+    "upgrades",
+    "vanilla-js"
+  ],
+  "status": "playable",
+  "created": "2026-10-25",
+  "controls": "Myš míření, LMB střelba, RMB gravitace, MMB laser, LMB+RMB rázová vlna, RMB+MMB laserová vlna, CTRL+kolečko zoom",
+  "thumbnail": "screenshot.png"
+}

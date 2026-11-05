@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Biomes</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.6rem 1rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input[type="number"] {
+      width: 4.5rem;
+      padding: 0.25rem 0.4rem;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input#seed {
+      width: 7rem;
+    }
+
+    #toolbar input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #8af;
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #zoomHud {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.75rem;
+      z-index: 1;
+      pointer-events: none;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+    }
+
+    #legend {
+      position: absolute;
+      left: 0.6rem;
+      bottom: 0.6rem;
+      z-index: 1;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 0.2rem 0.75rem;
+      padding: 0.45rem 0.6rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    #legend span {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    #legend i {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <label>
+      Seed
+      <input id="seed" type="number" value="42" />
+    </label>
+    <label>
+      Velikost (px)
+      <input id="size" type="number" min="1" value="8" />
+    </label>
+    <label>
+      Dimenze
+      <input id="dimension" type="number" min="2" value="8" />
+    </label>
+    <label>
+      <input id="smooth" type="checkbox" checked />
+      Plynulý přechod
+    </label>
+  </header>
+  <div id="stage">
+    <div id="zoomHud">1.00×</div>
+    <div id="legend"></div>
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const MAX_DEPTH = 8;
+    const MIN_ZOOM = 1;
+    const SMOOTH_FADE_START = 0.5;
+    const OCEAN_THRESHOLD = 0.47;
+    const COAST_BAND = 0.045;
+
+    const OCEAN = 0;
+    const COAST = 1;
+    const PLAINS = 2;
+    const FOREST = 3;
+    const JUNGLE = 4;
+    const DESERT = 5;
+    const MOUNTAIN = 6;
+    const SNOW = 7;
+    const RIVER = 8;
+
+    const BIOMES = [
+      { id: OCEAN, name: "Ocean", color: "#1a3a6e" },
+      { id: COAST, name: "Coast", color: "#c2b280" },
+      { id: PLAINS, name: "Plains", color: "#7cb342" },
+      { id: FOREST, name: "Forest", color: "#2e7d32" },
+      { id: JUNGLE, name: "Jungle", color: "#145a32" },
+      { id: DESERT, name: "Desert", color: "#d4a017" },
+      { id: MOUNTAIN, name: "Mountain", color: "#757575" },
+      { id: SNOW, name: "Snow", color: "#eceff1" },
+      { id: RIVER, name: "River", color: "#3a9ad9" },
+    ];
+
+    const COLORS = BIOMES.map((b) => b.color);
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const seedInput = document.getElementById("seed");
+    const sizeInput = document.getElementById("size");
+    const dimensionInput = document.getElementById("dimension");
+    const smoothInput = document.getElementById("smooth");
+    const zoomHud = document.getElementById("zoomHud");
+    const legendEl = document.getElementById("legend");
+    const stage = document.getElementById("stage");
+
+    const cam = { x: 0, y: 0, zoom: 1 };
+    /** @type {Map<string, number>} */
+    let biomeCache = new Map();
+    let cacheSeed = null;
+    let cssW = 1;
+    let cssH = 1;
+    let rafId = 0;
+    let lastLogAt = 0;
+    let panning = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    legendEl.innerHTML = BIOMES.map(
+      (b) =>
+        `<span><i style="background:${b.color}"></i>${b.name}</span>`
+    ).join("");
+
+    function readParams() {
+      return {
+        seed: Math.floor(Number(seedInput.value) || 0),
+        size: Math.max(1, Math.floor(Number(sizeInput.value) || 8)),
+        dimension: Math.max(2, Math.floor(Number(dimensionInput.value) || 8)),
+        smooth: !!smoothInput.checked,
+      };
+    }
+
+    function hash2(x, y, seed) {
+      let n =
+        Math.imul(x | 0, 374761393) +
+        Math.imul(y | 0, 668265263) +
+        Math.imul(seed | 0, 1274126177);
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n = n ^ (n >>> 16);
+      return (n >>> 0) / 4294967296;
+    }
+
+    function valueNoise2D(x, y, seed) {
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const fx = x - x0;
+      const fy = y - y0;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash2(x0, y0, seed);
+      const v10 = hash2(x0 + 1, y0, seed);
+      const v01 = hash2(x0, y0 + 1, seed);
+      const v11 = hash2(x0 + 1, y0 + 1, seed);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    }
+
+    function fbm(x, y, seed, octaves) {
+      let amp = 1;
+      let freq = 1;
+      let sum = 0;
+      let norm = 0;
+      for (let i = 0; i < octaves; i++) {
+        sum += amp * valueNoise2D(x * freq, y * freq, seed + i * 1013);
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2;
+      }
+      return sum / norm;
+    }
+
+    /** Continuous land mask (same field at every zoom). */
+    function landField(x, y, seed) {
+      return fbm(x * 0.07, y * 0.07, seed + 11, 5);
+    }
+
+    function elevField(x, y, seed) {
+      return fbm(x * 0.14, y * 0.14, seed + 44, 4);
+    }
+
+    function moistField(x, y, seed) {
+      return fbm(x * 0.11, y * 0.11, seed + 33, 4);
+    }
+
+    function landBiomeAt(x, y, seed) {
+      const temp = fbm(x * 0.09, y * 0.09, seed + 22, 4);
+      const moist = moistField(x, y, seed);
+      const elev = elevField(x, y, seed);
+
+      if (elev > 0.72) return temp < 0.42 ? SNOW : MOUNTAIN;
+      if (temp > 0.66) {
+        if (moist < 0.34) return DESERT;
+        if (moist > 0.64) return JUNGLE;
+        return PLAINS;
+      }
+      if (temp > 0.4) {
+        if (moist < 0.32) return PLAINS;
+        if (moist > 0.55) return FOREST;
+        return PLAINS;
+      }
+      if (moist > 0.5) return SNOW;
+      return MOUNTAIN;
+    }
+
+    /**
+     * River centerline strength 0..1 — meandering ridge (domain-warped).
+     * Same continuous field at every zoom → coherent rivers, not speckles.
+     */
+    function riverRidge(x, y, seed) {
+      const warp = 8;
+      const wx = x + (fbm(x * 0.025, y * 0.025, seed + 501, 3) - 0.5) * warp;
+      const wy = y + (fbm(x * 0.025, y * 0.025, seed + 502, 3) - 0.5) * warp;
+      // Hlavní tok
+      const nMain = fbm(wx * 0.042, wy * 0.042, seed + 510, 4);
+      const main = 1 - Math.abs(nMain - 0.5) * 2;
+      // Řidší přítoky (slabší)
+      const nTrib = fbm(wx * 0.09 + 20, wy * 0.09 - 10, seed + 520, 3);
+      const trib = 1 - Math.abs(nTrib - 0.5) * 2;
+      return Math.max(main, trib * 0.72);
+    }
+
+    /** True if (x,y) lies on a thin river corridor on land. */
+    function isRiverAt(x, y, seed, worldSize) {
+      const land = landField(x, y, seed);
+      if (land < OCEAN_THRESHOLD) return false;
+
+      const elev = elevField(x, y, seed);
+      if (elev > 0.86) return false;
+
+      const moist = moistField(x, y, seed);
+      // Suché oblasti skoro bez řek
+      if (moist < 0.28 && land > OCEAN_THRESHOLD + 0.06) return false;
+
+      const ridge = riverRidge(x, y, seed);
+      // Nejdřív hrubý cut — většina mapy odpadne
+      if (ridge < 0.93) return false;
+
+      // Drainage: musí existovat downhill směr
+      const eps = Math.max(worldSize * 0.9, 0.2);
+      const dirs = [
+        [1, 0], [-1, 0], [0, 1], [0, -1],
+        [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7],
+      ];
+      let bestDrop = 0;
+      let touchesSea = land < OCEAN_THRESHOLD + 0.09;
+      for (let d = 0; d < dirs.length; d++) {
+        const lx = x + dirs[d][0] * eps;
+        const ly = y + dirs[d][1] * eps;
+        const land2 = landField(lx, ly, seed);
+        const elev2 = elevField(lx, ly, seed);
+        const drop = Math.max(elev - elev2, land - land2);
+        if (drop > bestDrop) bestDrop = drop;
+        if (land2 < OCEAN_THRESHOLD) touchesSea = true;
+      }
+      if (bestDrop < 0.012 && !touchesSea) return false;
+
+      // Velmi úzký koridor; u ústí o něco širší
+      let thresh = touchesSea || land < OCEAN_THRESHOLD + 0.08 ? 0.955 : 0.972;
+      if (moist > 0.62) thresh -= 0.008;
+      if (elev > 0.68) thresh += 0.01;
+
+      return ridge > thresh;
+    }
+
+    /**
+     * Biome from continuous world coords — coastline follows landField isosurface,
+     * not random child tables (no water/land speckles when zooming).
+     */
+    function continuousBiomeAt(x, y, seed, probe) {
+      const land = landField(x, y, seed);
+
+      if (land < OCEAN_THRESHOLD) {
+        return OCEAN;
+      }
+
+      // Coast = land near the ocean isosurface (probe in world units).
+      const eps = probe;
+      const nearOcean =
+        landField(x + eps, y, seed) < OCEAN_THRESHOLD ||
+        landField(x - eps, y, seed) < OCEAN_THRESHOLD ||
+        landField(x, y + eps, seed) < OCEAN_THRESHOLD ||
+        landField(x, y - eps, seed) < OCEAN_THRESHOLD ||
+        land < OCEAN_THRESHOLD + COAST_BAND;
+
+      if (nearOcean) return COAST;
+      return landBiomeAt(x, y, seed);
+    }
+
+    /**
+     * Rare coherent blobs (lakes, clearings, oasis) — gated by low-frequency
+     * structure so features are small patches, not TV noise.
+     */
+    function applySparseFeatures(biome, x, y, seed, depth) {
+      // Large blob mask: only inside a narrow band of this field can features exist.
+      const structure = fbm(x * 0.04, y * 0.04, seed + 199, 3);
+      if (structure < 0.52 || structure > 0.78) return biome;
+
+      // Feature detail — higher freq with depth, still smooth fbm.
+      const freq = 0.12 * Math.pow(1.45, Math.min(depth, 5));
+      const detail = fbm(x * freq, y * freq, seed + 299, 3);
+
+      if (biome === OCEAN) {
+        // Tiny islets only where land field almost crosses threshold (near coast line).
+        const land = landField(x, y, seed);
+        if (
+          land > OCEAN_THRESHOLD - 0.035 &&
+          land < OCEAN_THRESHOLD &&
+          detail > 0.72 &&
+          detail < 0.8 &&
+          structure > 0.6 &&
+          structure < 0.7
+        ) {
+          return COAST;
+        }
+        return OCEAN;
+      }
+
+      if (biome === COAST) {
+        // Keep coast as a band; only tiny ocean bites along the line.
+        if (detail < 0.18 && structure > 0.58 && structure < 0.66) return OCEAN;
+        if (detail > 0.84 && structure > 0.62 && structure < 0.72) {
+          return landBiomeAt(x, y, seed);
+        }
+        return COAST;
+      }
+
+      if (biome === FOREST || biome === JUNGLE) {
+        // Small clearing
+        if (detail > 0.8 && detail < 0.87 && structure > 0.55 && structure < 0.68) {
+          return PLAINS;
+        }
+      }
+
+      if (biome === PLAINS || biome === FOREST) {
+        // Small lake (blob, not speckles)
+        if (detail < 0.16 && structure > 0.58 && structure < 0.7) {
+          return OCEAN;
+        }
+      }
+
+      if (biome === DESERT) {
+        if (detail > 0.82 && detail < 0.88 && structure > 0.56 && structure < 0.66) {
+          return PLAINS;
+        }
+      }
+
+      if (biome === MOUNTAIN) {
+        if (detail > 0.83 && detail < 0.9 && structure > 0.6 && structure < 0.72) {
+          return SNOW;
+        }
+      }
+
+      return biome;
+    }
+
+    function smartBiomeAt(x, y, seed, worldSize, depth) {
+      // Probe distance scales with cell size so coast line stays sharp at every LOD.
+      const probe = Math.max(worldSize * 0.55, 0.02);
+      let biome = continuousBiomeAt(x, y, seed, probe);
+      biome = applySparseFeatures(biome, x, y, seed, depth);
+      // Rivers carve land/coast (estuaries); open ocean stays ocean.
+      if (biome !== OCEAN && isRiverAt(x, y, seed, worldSize)) {
+        return RIVER;
+      }
+      return biome;
+    }
+
+    function ensureBiome(path, depth, wx, wy, worldSize, seed, stats) {
+      const cached = biomeCache.get(path);
+      if (cached != null) {
+        stats.fromCache++;
+        return cached;
+      }
+
+      const cx = wx + worldSize * 0.5;
+      const cy = wy + worldSize * 0.5;
+      const biome = smartBiomeAt(cx, cy, seed, worldSize, depth);
+
+      biomeCache.set(path, biome);
+      stats.generated++;
+      return biome;
+    }
+
+    function updateHud() {
+      zoomHud.textContent = cam.zoom.toFixed(2) + "×";
+    }
+
+    function draw() {
+      const t0 = performance.now();
+      const { seed, size, dimension, smooth } = readParams();
+
+      if (cacheSeed !== seed) {
+        biomeCache = new Map();
+        cacheSeed = seed;
+        cam.x = 0;
+        cam.y = 0;
+        cam.zoom = 1;
+      }
+
+      const scale = size * cam.zoom;
+      const splitThreshold = size * dimension;
+      const fadeStart = splitThreshold * SMOOTH_FADE_START;
+      const viewX = cam.x;
+      const viewY = cam.y;
+      const viewRight = viewX + cssW / scale;
+      const viewBottom = viewY + cssH / scale;
+
+      ctx.clearRect(0, 0, cssW, cssH);
+      ctx.globalAlpha = 1;
+
+      const stats = {
+        fromCache: 0,
+        generated: 0,
+        drawn: 0,
+        maxDrawnDepth: 0,
+      };
+
+      let lastFill = "";
+      let lastAlpha = 1;
+
+      function setFill(fill, alpha) {
+        if (alpha !== lastAlpha) {
+          ctx.globalAlpha = alpha;
+          lastAlpha = alpha;
+        }
+        if (fill !== lastFill) {
+          ctx.fillStyle = fill;
+          lastFill = fill;
+        }
+      }
+
+      function paintCell(wx, wy, worldSize, biome, alpha) {
+        const screenSize = worldSize * scale;
+        const sx = (wx - cam.x) * scale;
+        const sy = (wy - cam.y) * scale;
+        setFill(COLORS[biome], alpha);
+        ctx.fillRect(sx, sy, screenSize + 0.5, screenSize + 0.5);
+        stats.drawn++;
+      }
+
+      function blendFactor(screenSize) {
+        if (!smooth) return screenSize >= splitThreshold ? 1 : 0;
+        if (screenSize >= splitThreshold) return 1;
+        if (screenSize <= fadeStart) return 0;
+        return (screenSize - fadeStart) / (splitThreshold - fadeStart);
+      }
+
+      function drawChildren(path, depth, wx, wy, worldSize) {
+        const childSize = worldSize / dimension;
+        const i0 = Math.max(0, Math.floor((viewX - wx) / childSize));
+        const i1 = Math.min(dimension, Math.ceil((viewRight - wx) / childSize));
+        const j0 = Math.max(0, Math.floor((viewY - wy) / childSize));
+        const j1 = Math.min(dimension, Math.ceil((viewBottom - wy) / childSize));
+        for (let j = j0; j < j1; j++) {
+          for (let i = i0; i < i1; i++) {
+            drawCell(
+              path + "/" + i + "," + j,
+              depth + 1,
+              wx + i * childSize,
+              wy + j * childSize,
+              childSize
+            );
+          }
+        }
+      }
+
+      function drawCell(path, depth, wx, wy, worldSize) {
+        if (
+          wx >= viewRight ||
+          wy >= viewBottom ||
+          wx + worldSize <= viewX ||
+          wy + worldSize <= viewY
+        ) {
+          return;
+        }
+
+        const biome = ensureBiome(path, depth, wx, wy, worldSize, seed, stats);
+        const screenSize = worldSize * scale;
+        const canSplit = depth < MAX_DEPTH;
+        const t = canSplit ? blendFactor(screenSize) : 0;
+
+        if (t >= 1) {
+          drawChildren(path, depth, wx, wy, worldSize);
+          return;
+        }
+
+        if (t > 0) {
+          drawChildren(path, depth, wx, wy, worldSize);
+          paintCell(wx, wy, worldSize, biome, 1 - t);
+        } else {
+          paintCell(wx, wy, worldSize, biome, 1);
+        }
+
+        if (depth > stats.maxDrawnDepth) stats.maxDrawnDepth = depth;
+      }
+
+      const x0 = Math.floor(viewX);
+      const y0 = Math.floor(viewY);
+      const x1 = Math.ceil(viewRight);
+      const y1 = Math.ceil(viewBottom);
+
+      for (let gy = y0; gy < y1; gy++) {
+        for (let gx = x0; gx < x1; gx++) {
+          drawCell(gx + "," + gy, 0, gx, gy, 1);
+        }
+      }
+
+      if (lastAlpha !== 1) ctx.globalAlpha = 1;
+      updateHud();
+
+      const ms = performance.now() - t0;
+      const now = performance.now();
+      if (now - lastLogAt >= 300) {
+        lastLogAt = now;
+        console.log("[smartbiomes] draw", {
+          seed,
+          size,
+          dimension,
+          smooth,
+          zoom: Math.round(cam.zoom * 100) / 100,
+          maxDrawnDepth: stats.maxDrawnDepth,
+          cells: {
+            fromCache: stats.fromCache,
+            generated: stats.generated,
+            drawn: stats.drawn,
+            cached: biomeCache.size,
+          },
+          durationMs: Math.round(ms * 100) / 100,
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      cssW = stage.clientWidth;
+      cssH = stage.clientHeight;
+      canvas.width = Math.max(1, Math.floor(cssW * dpr));
+      canvas.height = Math.max(1, Math.floor(cssH * dpr));
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function scheduleDraw() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        draw();
+      });
+    }
+
+    function resizeAndDraw() {
+      resizeCanvas();
+      scheduleDraw();
+    }
+
+    function onParamsChange() {
+      biomeCache = new Map();
+      cacheSeed = null;
+      cam.x = 0;
+      cam.y = 0;
+      cam.zoom = 1;
+      resizeAndDraw();
+    }
+
+    function screenToWorld(sx, sy, size, zoom) {
+      const scale = size * zoom;
+      return {
+        x: cam.x + sx / scale,
+        y: cam.y + sy / scale,
+      };
+    }
+
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const { size } = readParams();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const before = screenToWorld(mx, my, size, cam.zoom);
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        cam.zoom = Math.max(MIN_ZOOM, cam.zoom * factor);
+        const after = screenToWorld(mx, my, size, cam.zoom);
+        cam.x += before.x - after.x;
+        cam.y += before.y - after.y;
+        scheduleDraw();
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 2) return;
+      panning = true;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!panning) return;
+      const { size } = readParams();
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      const scale = size * cam.zoom;
+      cam.x -= dx / scale;
+      cam.y -= dy / scale;
+      scheduleDraw();
+    });
+
+    function endPan(e) {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = "crosshair";
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    canvas.addEventListener("pointerup", endPan);
+    canvas.addEventListener("pointercancel", endPan);
+
+    seedInput.addEventListener("input", onParamsChange);
+    sizeInput.addEventListener("input", onParamsChange);
+    dimensionInput.addEventListener("input", onParamsChange);
+    smoothInput.addEventListener("change", scheduleDraw);
+    window.addEventListener("resize", resizeAndDraw);
+
+    resizeAndDraw();
+  </script>
+</body>
+</html>

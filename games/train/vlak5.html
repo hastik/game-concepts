@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vlak 5 — CRT terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #010805;
+      --phosphor: #33ff66;
+      --phosphor-dim: #1a9940;
+      --phosphor-bright: #9dffb0;
+      --phosphor-dark: #0a2814;
+      --bezel: #0c0c0c;
+      --bezel-edge: #222;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "VT323", "Courier New", monospace;
+      background: #000;
+      color: var(--phosphor);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(ellipse at center, #0a1a10 0%, #000 70%);
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 0;
+      flex-shrink: 0;
+      z-index: 2;
+      border-bottom: 2px solid var(--phosphor-dim);
+      box-shadow: 0 0 12px rgba(51, 255, 102, 0.25);
+    }
+
+    #toolbar .title {
+      padding: 0.35rem 0.9rem;
+      background: var(--phosphor);
+      color: #001408;
+      font-size: 1.35rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+
+    #toolbar .stat {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.9rem;
+      font-size: 1.25rem;
+      letter-spacing: 0.06em;
+      color: var(--phosphor-dim);
+      border-left: 1px solid var(--phosphor-dark);
+      text-shadow: 0 0 6px rgba(51, 255, 102, 0.45);
+    }
+
+    #toolbar .stat strong {
+      color: var(--phosphor);
+      font-weight: 400;
+      text-shadow: 0 0 8px rgba(51, 255, 102, 0.7);
+    }
+
+    #toolbar .hint {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      padding: 0.35rem 0.9rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      color: var(--phosphor-dim);
+      text-shadow: 0 0 6px rgba(51, 255, 102, 0.35);
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #crt {
+      position: relative;
+      padding: 18px;
+      background: linear-gradient(145deg, #1a1a1a 0%, #050505 40%, #111 100%);
+      border-radius: 28px;
+      box-shadow:
+        inset 0 0 0 2px #2a2a2a,
+        inset 0 0 0 6px #0a0a0a,
+        0 0 40px rgba(0, 0, 0, 0.9),
+        0 10px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    #crt-screen {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--bg);
+      box-shadow:
+        inset 0 0 60px rgba(0, 40, 10, 0.85),
+        inset 0 0 120px rgba(0, 0, 0, 0.65),
+        0 0 30px rgba(51, 255, 102, 0.12);
+      transform: perspective(900px) rotateX(1.2deg);
+    }
+
+    #canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      filter: contrast(1.08) saturate(1.2);
+    }
+
+    #scanlines,
+    #vignette,
+    #glow {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+
+    #scanlines {
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.18) 0px,
+        rgba(0, 0, 0, 0.18) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      opacity: 0.55;
+      mix-blend-mode: multiply;
+    }
+
+    #vignette {
+      background: radial-gradient(
+        ellipse at center,
+        transparent 45%,
+        rgba(0, 0, 0, 0.35) 75%,
+        rgba(0, 0, 0, 0.75) 100%
+      );
+    }
+
+    #glow {
+      box-shadow: inset 0 0 40px rgba(51, 255, 102, 0.08);
+      animation: flicker 4s infinite;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      92% { opacity: 1; }
+      93% { opacity: 0.92; }
+      94% { opacity: 1; }
+      96% { opacity: 0.96; }
+      97% { opacity: 1; }
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 10, 4, 0.72);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    #overlay.visible { display: flex; }
+
+    #overlay .msg {
+      font-size: 2rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 0.8rem 1.4rem;
+      color: var(--phosphor);
+      text-shadow:
+        0 0 8px rgba(51, 255, 102, 0.9),
+        0 0 24px rgba(51, 255, 102, 0.5);
+      border: 2px solid var(--phosphor);
+      background: rgba(0, 20, 8, 0.85);
+      box-shadow: 0 0 20px rgba(51, 255, 102, 0.35);
+    }
+
+    #overlay.crash .msg {
+      color: #66ff99;
+      border-color: #66ff99;
+      animation: blink 0.35s steps(2) infinite;
+    }
+
+    #overlay.win .msg,
+    #overlay.done .msg {
+      background: var(--phosphor);
+      color: #001408;
+      text-shadow: none;
+      box-shadow: 0 0 28px rgba(51, 255, 102, 0.55);
+    }
+
+    #overlay .sub {
+      display: block;
+      margin-top: 0.45rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-transform: none;
+      opacity: 0.85;
+    }
+
+    #overlay.win .sub,
+    #overlay.done .sub {
+      color: #001408;
+      opacity: 0.75;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0.55; }
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <span class="title">VLAK 5</span>
+    <span class="stat">SCENE <strong id="levelName">START</strong></span>
+    <span class="stat">CARGO <strong id="itemCount">0 / 0</strong></span>
+    <span class="hint">ARROWS/WASD · R RESTART</span>
+  </header>
+  <div id="stage">
+    <div id="crt">
+      <div id="crt-screen">
+        <canvas id="canvas"></canvas>
+        <div id="scanlines"></div>
+        <div id="vignette"></div>
+        <div id="glow"></div>
+        <div id="overlay"><div class="msg" id="overlayMsg"></div></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const COLS = 20;
+    const ROWS = 12;
+    const CELL = 16;
+    const TICK_MS = 165;
+    const CRASH_MS = 900;
+    const WIN_MS = 900;
+
+    // Phosphor palette
+    const C = {
+      bg: "#020a05",
+      floorA: "#06140b",
+      floorB: "#04100a",
+      grid: "#0d2818",
+      wall: "#1f8f3a",
+      wallHi: "#33ff66",
+      wallLo: "#0f4a22",
+      loco: "#9dffb0",
+      locoCore: "#33ff66",
+      wagon: "#1a9940",
+      wagonHi: "#2ecc5a",
+      item: "#66ff99",
+      itemDim: "#228B45",
+      gateOff: "#0f3a1c",
+      gateOn: "#33ff66",
+      crash: "rgba(80, 255, 120, 0.18)",
+    };
+
+    const DIRS = {
+      up:    { x: 0, y: -1 },
+      down:  { x: 0, y: 1 },
+      left:  { x: -1, y: 0 },
+      right: { x: 1, y: 0 },
+    };
+
+    const OPPOSITE = {
+      up: "down", down: "up", left: "right", right: "left",
+    };
+
+    // Item glyphs kept as types; all drawn in green variants
+    const ITEM_TYPES = {
+      A: "crystal",
+      B: "crown",
+      C: "tree",
+      D: "apple",
+      E: "cow",
+    };
+
+    const LEVELS = [
+      {
+        name: "START",
+        map: [
+          "####################",
+          "#..................#",
+          "#..A..........B....#",
+          "#..................#",
+          "#........$.........#",
+          "#..................#",
+          "#..................#",
+          "#..C..........D....#",
+          "#..................#",
+          "#.........@........#",
+          "#..................#",
+          "####################",
+        ],
+      },
+      {
+        name: "ROHY",
+        map: [
+          "####################",
+          "#$.......##.......A#",
+          "#........##........#",
+          "#........##........#",
+          "#..................#",
+          "####............####",
+          "####............####",
+          "#..................#",
+          "#........##........#",
+          "#B.......##.......C#",
+          "#........@.........#",
+          "####################",
+        ],
+      },
+      {
+        name: "KRIZ",
+        map: [
+          "####################",
+          "#$....#......#....A#",
+          "#.....#..##..#.....#",
+          "#.....#..##..#.....#",
+          "#...........B......#",
+          "###.####....####.###",
+          "###.####....####.###",
+          "#......C...........#",
+          "#.....#..##..#.....#",
+          "#D....#..##..#....E#",
+          "#.....#..@...#.....#",
+          "####################",
+        ],
+      },
+      {
+        name: "BLUD",
+        map: [
+          "####################",
+          "#$A#....#....#....B#",
+          "#.##.##.#.##.#.##.##",
+          "#....#....#....#...#",
+          "####.#.####.####.#.#",
+          "#....#......C....#.#",
+          "#.####.######.####.#",
+          "#.#....#....#......#",
+          "#.#.####.##.#.####.#",
+          "#D#......##......E@#",
+          "#..................#",
+          "####################",
+        ],
+      },
+    ];
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const stage = document.getElementById("stage");
+    const overlay = document.getElementById("overlay");
+    const overlayMsg = document.getElementById("overlayMsg");
+    const levelNameEl = document.getElementById("levelName");
+    const itemCountEl = document.getElementById("itemCount");
+
+    const pxW = COLS * CELL;
+    const pxH = ROWS * CELL;
+
+    let levelIndex = 0;
+    let walls;
+    let items;
+    let gate;
+    let train;
+    let pendingDir = null;
+    let state = "play";
+    let totalItems = 0;
+    let animPhase = 0;
+    let lastTick = 0;
+    let stateUntil = 0;
+    let scale = 1;
+
+    function parseLevel(def) {
+      const w = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+      const itemMap = new Map();
+      let loco = null;
+      let gatePos = null;
+      let count = 0;
+
+      for (let y = 0; y < ROWS; y++) {
+        const row = def.map[y];
+        for (let x = 0; x < COLS; x++) {
+          const ch = row[x];
+          if (ch === "#") w[y][x] = true;
+          else if (ch === "$") loco = { x, y };
+          else if (ch === "@") gatePos = { x, y };
+          else if (ITEM_TYPES[ch]) {
+            itemMap.set(key(x, y), ch);
+            count++;
+          }
+        }
+      }
+
+      if (!loco || !gatePos) throw new Error("Level missing loco or gate: " + def.name);
+
+      return {
+        walls: w,
+        items: itemMap,
+        gate: gatePos,
+        train: {
+          parts: [{ x: loco.x, y: loco.y, kind: "loco" }],
+          dir: "right",
+        },
+        totalItems: count,
+      };
+    }
+
+    function key(x, y) {
+      return x + "," + y;
+    }
+
+    function loadLevel(index) {
+      levelIndex = index;
+      const parsed = parseLevel(LEVELS[index]);
+      walls = parsed.walls;
+      items = parsed.items;
+      gate = parsed.gate;
+      train = parsed.train;
+      totalItems = parsed.totalItems;
+      pendingDir = null;
+      state = "play";
+      stateUntil = 0;
+      animPhase = 0;
+      lastTick = performance.now();
+      hideOverlay();
+      updateHud();
+    }
+
+    function updateHud() {
+      levelNameEl.textContent = LEVELS[levelIndex].name;
+      const remaining = items.size;
+      if (remaining === 0 && state === "play") {
+        itemCountEl.textContent = "GATE OPEN";
+      } else {
+        itemCountEl.textContent = remaining + " / " + totalItems;
+      }
+    }
+
+    function showOverlay(kind, html) {
+      overlay.className = "visible " + kind;
+      overlayMsg.innerHTML = html;
+    }
+
+    function hideOverlay() {
+      overlay.className = "";
+      overlayMsg.innerHTML = "";
+    }
+
+    function resize() {
+      const rect = stage.getBoundingClientRect();
+      const pad = 56;
+      const availW = Math.max(1, rect.width - pad * 2);
+      const availH = Math.max(1, rect.height - pad * 2);
+      scale = Math.max(1, Math.floor(Math.min(availW / pxW, availH / pxH)));
+      canvas.width = pxW;
+      canvas.height = pxH;
+      canvas.style.width = pxW * scale + "px";
+      canvas.style.height = pxH * scale + "px";
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    function occupiedByTrain(x, y, skipTail) {
+      const n = train.parts.length;
+      for (let i = 0; i < n; i++) {
+        if (skipTail && i === n - 1) continue;
+        const p = train.parts[i];
+        if (p.x === x && p.y === y) return true;
+      }
+      return false;
+    }
+
+    function trySetDir(next) {
+      if (state !== "play") return;
+      if (OPPOSITE[train.dir] === next && train.parts.length > 1) return;
+      pendingDir = next;
+    }
+
+    function step() {
+      if (state !== "play") return;
+
+      if (pendingDir) {
+        if (!(OPPOSITE[train.dir] === pendingDir && train.parts.length > 1)) {
+          train.dir = pendingDir;
+        }
+        pendingDir = null;
+      }
+
+      const d = DIRS[train.dir];
+      const head = train.parts[0];
+      const nx = head.x + d.x;
+      const ny = head.y + d.y;
+
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || walls[ny][nx]) {
+        crash();
+        return;
+      }
+
+      const grow = items.has(key(nx, ny));
+      const skipTail = !grow;
+
+      if (occupiedByTrain(nx, ny, skipTail)) {
+        crash();
+        return;
+      }
+
+      if (nx === gate.x && ny === gate.y) {
+        if (items.size === 0) {
+          enterGate();
+          return;
+        }
+        crash();
+        return;
+      }
+
+      let cargo = null;
+      if (grow) {
+        cargo = items.get(key(nx, ny));
+        items.delete(key(nx, ny));
+      }
+
+      const newParts = [{ x: nx, y: ny, kind: "loco" }];
+      if (grow) {
+        newParts.push({
+          x: train.parts[0].x,
+          y: train.parts[0].y,
+          kind: "wagon",
+          cargo,
+        });
+        for (let i = 1; i < train.parts.length; i++) {
+          const src = train.parts[i];
+          newParts.push({
+            x: src.x,
+            y: src.y,
+            kind: "wagon",
+            cargo: src.cargo,
+          });
+        }
+      } else {
+        for (let i = 0; i < train.parts.length - 1; i++) {
+          newParts.push({
+            x: train.parts[i].x,
+            y: train.parts[i].y,
+            kind: "wagon",
+            cargo: train.parts[i + 1].cargo,
+          });
+        }
+      }
+      train.parts = newParts;
+      updateHud();
+    }
+
+    function crash() {
+      state = "crash";
+      stateUntil = performance.now() + CRASH_MS;
+      showOverlay("crash", "CRASH<span class=\"sub\">reloading scene…</span>");
+    }
+
+    function enterGate() {
+      if (levelIndex >= LEVELS.length - 1) {
+        state = "done";
+        stateUntil = performance.now() + 2200;
+        showOverlay("done", "COMPLETE<span class=\"sub\">R — play again</span>");
+      } else {
+        state = "win";
+        stateUntil = performance.now() + WIN_MS;
+        showOverlay("win", "SCENE CLEAR<span class=\"sub\">next…</span>");
+      }
+    }
+
+    // ---- Drawing (phosphor CRT) ----
+
+    function fillRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    function glowOn(color, blur) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = blur;
+    }
+
+    function glowOff() {
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+    }
+
+    function drawCellBg(x, y) {
+      const px = x * CELL;
+      const py = y * CELL;
+      const checker = (x + y) % 2 === 0;
+      fillRect(px, py, CELL, CELL, checker ? C.floorA : C.floorB);
+      // faint terminal dot
+      fillRect(px + CELL - 2, py + CELL - 2, 1, 1, C.grid);
+    }
+
+    function drawWall(x, y) {
+      const px = x * CELL;
+      const py = y * CELL;
+      fillRect(px, py, CELL, CELL, C.wallLo);
+      glowOn(C.wallHi, 4);
+      fillRect(px + 1, py + 1, CELL - 2, CELL - 2, C.wall);
+      glowOff();
+      fillRect(px + 2, py + 2, 2, 2, C.wallHi);
+      fillRect(px + 6, py + 2, 2, 2, C.wallLo);
+      fillRect(px + 10, py + 2, 2, 2, C.wallHi);
+      fillRect(px + 2, py + 6, 2, 2, C.wallLo);
+      fillRect(px + 6, py + 6, 2, 2, C.wallHi);
+      fillRect(px + 10, py + 6, 2, 2, C.wallLo);
+      fillRect(px + 2, py + 10, 2, 2, C.wallHi);
+      fillRect(px + 6, py + 10, 2, 2, C.wallLo);
+      fillRect(px + 10, py + 10, 2, 2, C.wallHi);
+      fillRect(px, py, CELL, 1, C.wallHi);
+      fillRect(px, py, 1, CELL, C.wallHi);
+    }
+
+    function drawGate(x, y, open) {
+      const px = x * CELL;
+      const py = y * CELL;
+      fillRect(px, py, CELL, CELL, C.floorA);
+      const col = open ? C.gateOn : C.gateOff;
+      if (open) glowOn(C.gateOn, 8);
+      fillRect(px + 2, py + 1, 2, CELL - 2, col);
+      fillRect(px + 12, py + 1, 2, CELL - 2, col);
+      fillRect(px + 4, py + 1, 8, 2, col);
+      fillRect(px + 4, py + CELL - 3, 8, 2, col);
+      if (open && (animPhase & 1) === 0) {
+        fillRect(px + 6, py + 5, 4, 6, C.loco);
+      }
+      glowOff();
+    }
+
+    function drawItem(x, y, type) {
+      const px = x * CELL;
+      const py = y * CELL;
+      const bob = animPhase & 1;
+      glowOn(C.item, 6);
+
+      if (type === "A") {
+        // ◆
+        fillRect(px + 7, py + 2 + bob, 2, 12, C.item);
+        fillRect(px + 4, py + 5 + bob, 8, 6, C.item);
+        fillRect(px + 6, py + 6 + bob, 2, 2, C.loco);
+      } else if (type === "B") {
+        // ♔-ish
+        fillRect(px + 3, py + 8 + bob, 10, 5, C.item);
+        fillRect(px + 3, py + 5 + bob, 2, 3, C.item);
+        fillRect(px + 7, py + 4 + bob, 2, 4, C.item);
+        fillRect(px + 11, py + 5 + bob, 2, 3, C.item);
+        fillRect(px + 7, py + 3 + bob, 2, 2, C.loco);
+      } else if (type === "C") {
+        fillRect(px + 7, py + 9, 2, 5, C.itemDim);
+        fillRect(px + 4, py + 3 + bob, 8, 7, C.item);
+        fillRect(px + 6, py + 2 + bob, 4, 2, C.item);
+      } else if (type === "D") {
+        fillRect(px + 4, py + 5 + bob, 8, 8, C.item);
+        fillRect(px + 7, py + 3 + bob, 2, 3, C.itemDim);
+        fillRect(px + 6, py + 7 + bob, 2, 2, C.loco);
+      } else {
+        fillRect(px + 3, py + 6 + bob, 10, 6, C.item);
+        fillRect(px + 11, py + 4 + bob, 3, 4, C.item);
+        fillRect(px + 3, py + 12 + bob, 2, 2, C.itemDim);
+        fillRect(px + 9, py + 12 + bob, 2, 2, C.itemDim);
+        fillRect(px + 12, py + 5 + bob, 1, 1, C.bg);
+      }
+      glowOff();
+    }
+
+    function drawLoco(x, y, dir) {
+      const px = x * CELL;
+      const py = y * CELL;
+      glowOn(C.locoCore, 10);
+      fillRect(px + 2, py + 4, 12, 8, C.locoCore);
+      fillRect(px + 3, py + 5, 10, 6, C.loco);
+      fillRect(px + 4, py + 2, 4, 3, C.wagonHi);
+      fillRect(px + 2, py + 12, 3, 2, C.wallLo);
+      fillRect(px + 11, py + 12, 3, 2, C.wallLo);
+
+      if (dir === "right") {
+        fillRect(px + 10, py + 6, 3, 3, C.bg);
+        fillRect(px + 14, py + 7, 2, 2, C.loco);
+      } else if (dir === "left") {
+        fillRect(px + 3, py + 6, 3, 3, C.bg);
+        fillRect(px, py + 7, 2, 2, C.loco);
+      } else if (dir === "up") {
+        fillRect(px + 6, py + 3, 3, 3, C.bg);
+        fillRect(px + 7, py, 2, 2, C.loco);
+      } else {
+        fillRect(px + 6, py + 8, 3, 3, C.bg);
+        fillRect(px + 7, py + 14, 2, 2, C.loco);
+      }
+      glowOff();
+    }
+
+    function drawWagon(x, y, cargo) {
+      const px = x * CELL;
+      const py = y * CELL;
+      glowOn(C.wagonHi, 5);
+      fillRect(px + 2, py + 5, 12, 7, C.wagon);
+      fillRect(px + 3, py + 6, 10, 5, C.wagonHi);
+      fillRect(px + 2, py + 12, 3, 2, C.wallLo);
+      fillRect(px + 11, py + 12, 3, 2, C.wallLo);
+      fillRect(px + 1, py + 7, 1, 3, C.wall);
+      fillRect(px + 14, py + 7, 1, 3, C.wall);
+      glowOff();
+
+      if (cargo && ITEM_TYPES[cargo]) {
+        fillRect(px + 5, py + 7, 6, 4, C.item);
+        fillRect(px + 6, py + 8, 2, 2, C.loco);
+      }
+    }
+
+    function draw() {
+      ctx.imageSmoothingEnabled = false;
+      fillRect(0, 0, pxW, pxH, C.bg);
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          drawCellBg(x, y);
+          if (walls[y][x]) drawWall(x, y);
+        }
+      }
+
+      drawGate(gate.x, gate.y, items.size === 0);
+
+      for (const [k, type] of items) {
+        const [sx, sy] = k.split(",").map(Number);
+        drawItem(sx, sy, type);
+      }
+
+      for (let i = train.parts.length - 1; i >= 0; i--) {
+        const p = train.parts[i];
+        if (p.kind === "loco") drawLoco(p.x, p.y, train.dir);
+        else drawWagon(p.x, p.y, p.cargo);
+      }
+
+      if (state === "crash") {
+        ctx.fillStyle = C.crash;
+        ctx.fillRect(0, 0, pxW, pxH);
+      }
+    }
+
+    function frame(now) {
+      if (state === "play") {
+        if (now - lastTick >= TICK_MS) {
+          lastTick += TICK_MS;
+          if (now - lastTick > TICK_MS) lastTick = now;
+          step();
+          animPhase++;
+        }
+      } else if (state === "crash") {
+        if (now >= stateUntil) loadLevel(levelIndex);
+      } else if (state === "win") {
+        if (now >= stateUntil) loadLevel(levelIndex + 1);
+      }
+
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    function onKey(e) {
+      const k = e.key.toLowerCase();
+      if (k === "arrowup" || k === "w") { e.preventDefault(); trySetDir("up"); }
+      else if (k === "arrowdown" || k === "s") { e.preventDefault(); trySetDir("down"); }
+      else if (k === "arrowleft" || k === "a") { e.preventDefault(); trySetDir("left"); }
+      else if (k === "arrowright" || k === "d") { e.preventDefault(); trySetDir("right"); }
+      else if (k === "r") {
+        e.preventDefault();
+        if (state === "done") loadLevel(0);
+        else loadLevel(levelIndex);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", resize);
+
+    resize();
+    loadLevel(0);
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

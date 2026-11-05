@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biomes2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; overflow: hidden;
+      font-family: system-ui, sans-serif; background: #111; color: #eee;
+    }
+    body { display: flex; flex-direction: column; }
+    #toolbar {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 1rem 1.5rem; padding: 0.6rem 1rem;
+      background: #1a1a1a; border-bottom: 1px solid #333; flex-shrink: 0;
+    }
+    #toolbar label {
+      display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;
+    }
+    #toolbar input[type="number"] {
+      width: 4.5rem; padding: 0.25rem 0.4rem; border: 1px solid #444;
+      border-radius: 4px; background: #222; color: #eee; font-size: 0.875rem;
+    }
+    #toolbar input#seed { width: 7rem; }
+    #toolbar input[type="checkbox"] {
+      width: 1rem; height: 1rem; accent-color: #8af;
+    }
+    #stage { flex: 1; min-height: 0; position: relative; }
+    #canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    #zoomHud {
+      position: absolute; top: 0.6rem; right: 0.75rem; z-index: 1;
+      pointer-events: none; font-size: 0.8rem; font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333; border-radius: 4px; color: #eee; white-space: nowrap;
+    }
+    #legend {
+      position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 1;
+      pointer-events: none; display: grid; grid-template-columns: auto auto;
+      gap: 0.2rem 0.75rem; padding: 0.45rem 0.6rem; background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333; border-radius: 4px; font-size: 0.7rem;
+    }
+    #legend span { display: flex; align-items: center; gap: 0.35rem; }
+    #legend i { width: 0.65rem; height: 0.65rem; border-radius: 2px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <label>
+      Seed
+      <input id="seed" type="number" value="42" />
+    </label>
+    <label>
+      Velikost (px)
+      <input id="size" type="number" min="1" value="8" />
+    </label>
+    <label>
+      Dimenze
+      <input id="dimension" type="number" min="2" value="8" />
+    </label>
+    <label>
+      <input id="smooth" type="checkbox" checked />
+      Plynulý přechod
+    </label>
+    <label>
+      <input id="iso" type="checkbox" />
+      Izometrie
+    </label>
+  </header>
+  <div id="stage">
+    <div id="zoomHud">1.00× · 0.0ms · 0 cells</div>
+    <div id="legend"></div>
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const MAX_DEPTH = 8;
+    const MIN_ZOOM = 1;
+    const SMOOTH_FADE_START = 0.5;
+
+    const OCEAN = 0, COAST = 1, PLAINS = 2, FOREST = 3;
+    const JUNGLE = 4, DESERT = 5, MOUNTAIN = 6, SNOW = 7;
+
+    const BIOMES = [
+      { id: OCEAN, name: "Ocean", color: "#1a3a6e" },
+      { id: COAST, name: "Coast", color: "#c2b280" },
+      { id: PLAINS, name: "Plains", color: "#7cb342" },
+      { id: FOREST, name: "Forest", color: "#2e7d32" },
+      { id: JUNGLE, name: "Jungle", color: "#145a32" },
+      { id: DESERT, name: "Desert", color: "#d4a017" },
+      { id: MOUNTAIN, name: "Mountain", color: "#757575" },
+      { id: SNOW, name: "Snow", color: "#eceff1" },
+    ];
+
+    function hexToRgb(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    const BIOME_RGBA = BIOMES.map((b) => hexToRgb(b.color));
+
+    const CHILD_TABLE = {
+      [OCEAN]: [[OCEAN, 0.88], [COAST, 0.1], [PLAINS, 0.02]],
+      [COAST]: [[COAST, 0.45], [OCEAN, 0.28], [PLAINS, 0.2], [DESERT, 0.05], [FOREST, 0.02]],
+      [PLAINS]: [[PLAINS, 0.68], [FOREST, 0.16], [DESERT, 0.06], [COAST, 0.05], [OCEAN, 0.03], [MOUNTAIN, 0.02]],
+      [FOREST]: [[FOREST, 0.72], [PLAINS, 0.14], [JUNGLE, 0.06], [OCEAN, 0.04], [MOUNTAIN, 0.04]],
+      [JUNGLE]: [[JUNGLE, 0.74], [FOREST, 0.12], [PLAINS, 0.06], [OCEAN, 0.05], [COAST, 0.03]],
+      [DESERT]: [[DESERT, 0.78], [PLAINS, 0.1], [MOUNTAIN, 0.07], [COAST, 0.03], [OCEAN, 0.02]],
+      [MOUNTAIN]: [[MOUNTAIN, 0.62], [SNOW, 0.18], [PLAINS, 0.1], [FOREST, 0.06], [DESERT, 0.04]],
+      [SNOW]: [[SNOW, 0.72], [MOUNTAIN, 0.2], [PLAINS, 0.05], [FOREST, 0.03]],
+    };
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const seedInput = document.getElementById("seed");
+    const sizeInput = document.getElementById("size");
+    const dimensionInput = document.getElementById("dimension");
+    const smoothInput = document.getElementById("smooth");
+    const isoInput = document.getElementById("iso");
+    const zoomHud = document.getElementById("zoomHud");
+    const legendEl = document.getElementById("legend");
+    const stage = document.getElementById("stage");
+
+    const cam = { x: 0, y: 0, zoom: 1 };
+    let biomeCache = new Map();
+    let cacheSeed = null;
+    let cssW = 1, cssH = 1, bufW = 1, bufH = 1, dpr = 1;
+    let imageData = null;
+    let rafId = 0;
+    let lastLogAt = 0;
+    let panning = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    legendEl.innerHTML = BIOMES.map(
+      (b) => `<span><i style="background:${b.color}"></i>${b.name}</span>`
+    ).join("");
+
+    function readParams() {
+      return {
+        seed: Math.floor(Number(seedInput.value) || 0),
+        size: Math.max(1, Math.floor(Number(sizeInput.value) || 8)),
+        dimension: Math.max(2, Math.floor(Number(dimensionInput.value) || 8)),
+        smooth: !!smoothInput.checked,
+        iso: !!isoInput.checked,
+      };
+    }
+
+    function hash2(x, y, seed) {
+      let n =
+        Math.imul(x | 0, 374761393) +
+        Math.imul(y | 0, 668265263) +
+        Math.imul(seed | 0, 1274126177);
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n = n ^ (n >>> 16);
+      return (n >>> 0) / 4294967296;
+    }
+
+    function valueNoise2D(x, y, seed) {
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      const fx = x - x0, fy = y - y0;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash2(x0, y0, seed);
+      const v10 = hash2(x0 + 1, y0, seed);
+      const v01 = hash2(x0, y0 + 1, seed);
+      const v11 = hash2(x0 + 1, y0 + 1, seed);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    }
+
+    function fbm(x, y, seed, octaves) {
+      let amp = 1, freq = 1, sum = 0, norm = 0;
+      for (let i = 0; i < octaves; i++) {
+        sum += amp * valueNoise2D(x * freq, y * freq, seed + i * 1013);
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2;
+      }
+      return sum / norm;
+    }
+
+    function pickWeighted(weights, r) {
+      let acc = 0;
+      for (let i = 0; i < weights.length; i++) {
+        acc += weights[i][1];
+        if (r < acc) return weights[i][0];
+      }
+      return weights[weights.length - 1][0];
+    }
+
+    function isOceanCell(x, y, seed) {
+      return fbm(x * 0.07, y * 0.07, seed + 11, 5) < 0.47;
+    }
+
+    function landBiomeAt(x, y, seed) {
+      const temp = fbm(x * 0.09, y * 0.09, seed + 22, 4);
+      const moist = fbm(x * 0.11, y * 0.11, seed + 33, 4);
+      const elev = fbm(x * 0.14, y * 0.14, seed + 44, 4);
+      if (elev > 0.72) return temp < 0.42 ? SNOW : MOUNTAIN;
+      if (temp > 0.66) {
+        if (moist < 0.34) return DESERT;
+        if (moist > 0.64) return JUNGLE;
+        return PLAINS;
+      }
+      if (temp > 0.4) {
+        if (moist < 0.32) return PLAINS;
+        if (moist > 0.55) return FOREST;
+        return PLAINS;
+      }
+      return moist > 0.5 ? SNOW : MOUNTAIN;
+    }
+
+    function rootBiome(x, y, seed) {
+      if (isOceanCell(x, y, seed)) return OCEAN;
+      if (
+        isOceanCell(x + 1, y, seed) || isOceanCell(x - 1, y, seed) ||
+        isOceanCell(x, y + 1, seed) || isOceanCell(x, y - 1, seed)
+      ) return COAST;
+      return landBiomeAt(x, y, seed);
+    }
+
+    function childBiome(parentBiome, wx, wy, worldSize, depth, seed, i, j, dimension) {
+      const cx = wx + worldSize * 0.5;
+      const cy = wy + worldSize * 0.5;
+      const r = hash2(Math.floor(cx * 1024), Math.floor(cy * 1024) ^ (depth * 9973), seed + 77);
+      let weights = CHILD_TABLE[parentBiome] || CHILD_TABLE[PLAINS];
+      const edge = i === 0 || j === 0 || i === dimension - 1 || j === dimension - 1;
+      if (edge) {
+        const boosted = [];
+        for (let k = 0; k < weights.length; k++) {
+          const biome = weights[k][0], w = weights[k][1];
+          boosted.push([biome, biome === parentBiome ? w * 0.75 : w * 1.35]);
+        }
+        let sum = 0;
+        for (let k = 0; k < boosted.length; k++) sum += boosted[k][1];
+        for (let k = 0; k < boosted.length; k++) boosted[k][1] /= sum;
+        weights = boosted;
+      }
+      let biome = pickWeighted(weights, r);
+      const rare = hash2(Math.floor(cx * 2048), Math.floor(cy * 2048), seed + 88);
+      if (parentBiome === DESERT && rare < 0.02) biome = PLAINS;
+      if (parentBiome === OCEAN && rare < 0.015) biome = COAST;
+      if (parentBiome === PLAINS || parentBiome === FOREST || parentBiome === JUNGLE) {
+        const waterN = fbm(cx * (0.07 * Math.pow(2, depth)), cy * (0.07 * Math.pow(2, depth)), seed + 55, 3);
+        if (waterN < 0.28 && rare < 0.08) biome = OCEAN;
+      }
+      return biome;
+    }
+
+    function ensureBiome(path, depth, wx, wy, worldSize, parentBiome, seed, i, j, dimension, stats) {
+      const cached = biomeCache.get(path);
+      if (cached != null) { stats.fromCache++; return cached; }
+      const biome = depth === 0
+        ? rootBiome(Math.floor(wx), Math.floor(wy), seed)
+        : childBiome(parentBiome, wx, wy, worldSize, depth, seed, i, j, dimension);
+      biomeCache.set(path, biome);
+      stats.generated++;
+      return biome;
+    }
+
+    /** 2:1 isometric: world delta → screen pixels (buffer space). */
+    function worldToIso(wx, wy, scale) {
+      return {
+        x: (wx - wy) * scale * 0.5,
+        y: (wx + wy) * scale * 0.25,
+      };
+    }
+
+    function isoToWorld(sx, sy, scale) {
+      const u = sx / (scale * 0.5);
+      const v = sy / (scale * 0.25);
+      return {
+        x: (u + v) * 0.5,
+        y: (v - u) * 0.5,
+      };
+    }
+
+    function fillRectOpaque(data, width, height, x0, y0, w, h, r, g, b) {
+      let x = x0 | 0, y = y0 | 0, rw = Math.ceil(w), rh = Math.ceil(h);
+      if (x < 0) { rw += x; x = 0; }
+      if (y < 0) { rh += y; y = 0; }
+      if (x + rw > width) rw = width - x;
+      if (y + rh > height) rh = height - y;
+      if (rw <= 0 || rh <= 0) return;
+      for (let row = y; row < y + rh; row++) {
+        let i = (row * width + x) * 4;
+        const end = i + rw * 4;
+        for (; i < end; i += 4) {
+          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
+        }
+      }
+    }
+
+    function fillRectBlend(data, width, height, x0, y0, w, h, r, g, b, a) {
+      if (a >= 0.999) return fillRectOpaque(data, width, height, x0, y0, w, h, r, g, b);
+      if (a <= 0.001) return;
+      let x = x0 | 0, y = y0 | 0, rw = Math.ceil(w), rh = Math.ceil(h);
+      if (x < 0) { rw += x; x = 0; }
+      if (y < 0) { rh += y; y = 0; }
+      if (x + rw > width) rw = width - x;
+      if (y + rh > height) rh = height - y;
+      if (rw <= 0 || rh <= 0) return;
+      const ia = 1 - a, sr = r * a, sg = g * a, sb = b * a;
+      for (let row = y; row < y + rh; row++) {
+        let i = (row * width + x) * 4;
+        const end = i + rw * 4;
+        for (; i < end; i += 4) {
+          data[i] = (sr + data[i] * ia) | 0;
+          data[i + 1] = (sg + data[i + 1] * ia) | 0;
+          data[i + 2] = (sb + data[i + 2] * ia) | 0;
+          data[i + 3] = 255;
+        }
+      }
+    }
+
+    /** Fill diamond (rhombus) for isometric cell. Points are screen-space. */
+    function fillDiamond(data, width, height, points, r, g, b, a) {
+      let minY = Infinity, maxY = -Infinity;
+      let minX = Infinity, maxX = -Infinity;
+      for (let i = 0; i < 4; i++) {
+        const p = points[i];
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const y0 = Math.max(0, Math.floor(minY));
+      const y1 = Math.min(height - 1, Math.ceil(maxY));
+      if (y1 < y0) return;
+
+      const blend = a < 0.999;
+      const ia = 1 - a;
+      const sr = r * a, sg = g * a, sb = b * a;
+
+      // Edge equations for convex quad (top, right, bottom, left of diamond)
+      // Scanline: for each y, find x range inside all half-planes of edges
+      const edges = [];
+      for (let i = 0; i < 4; i++) {
+        const p0 = points[i];
+        const p1 = points[(i + 1) % 4];
+        edges.push({ x0: p0.x, y0: p0.y, x1: p1.x, y1: p1.y });
+      }
+
+      for (let y = y0; y <= y1; y++) {
+        const ys = y + 0.5;
+        let xMin = Infinity;
+        let xMax = -Infinity;
+        for (let e = 0; e < 4; e++) {
+          const { x0, y0: ey0, x1, y1: ey1 } = edges[e];
+          if ((ey0 <= ys && ey1 > ys) || (ey1 <= ys && ey0 > ys)) {
+            const t = (ys - ey0) / (ey1 - ey0);
+            const x = x0 + t * (x1 - x0);
+            if (x < xMin) xMin = x;
+            if (x > xMax) xMax = x;
+          }
+        }
+        if (xMax < xMin) continue;
+        let xi0 = Math.max(0, Math.floor(xMin));
+        let xi1 = Math.min(width - 1, Math.ceil(xMax));
+        if (xi1 < xi0) continue;
+        let i = (y * width + xi0) * 4;
+        if (!blend) {
+          for (let x = xi0; x <= xi1; x++, i += 4) {
+            data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
+          }
+        } else {
+          for (let x = xi0; x <= xi1; x++, i += 4) {
+            data[i] = (sr + data[i] * ia) | 0;
+            data[i + 1] = (sg + data[i + 1] * ia) | 0;
+            data[i + 2] = (sb + data[i + 2] * ia) | 0;
+            data[i + 3] = 255;
+          }
+        }
+      }
+    }
+
+    function visibleWorldBounds(iso, scale, originWx, originWy) {
+      if (!iso) {
+        return {
+          viewX: originWx,
+          viewY: originWy,
+          viewRight: originWx + cssW / (scale / dpr),
+          viewBottom: originWy + cssH / (scale / dpr),
+        };
+      }
+      // Screen corners → world via inverse iso (relative to cam at screen center)
+      const halfW = bufW * 0.5;
+      const halfH = bufH * 0.5;
+      const corners = [
+        isoToWorld(-halfW, -halfH, scale),
+        isoToWorld(halfW, -halfH, scale),
+        isoToWorld(halfW, halfH, scale),
+        isoToWorld(-halfW, halfH, scale),
+      ];
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let i = 0; i < 4; i++) {
+        const wx = corners[i].x + originWx;
+        const wy = corners[i].y + originWy;
+        if (wx < minX) minX = wx;
+        if (wy < minY) minY = wy;
+        if (wx > maxX) maxX = wx;
+        if (wy > maxY) maxY = wy;
+      }
+      const pad = 2;
+      return {
+        viewX: minX - pad,
+        viewY: minY - pad,
+        viewRight: maxX + pad,
+        viewBottom: maxY + pad,
+      };
+    }
+
+    function updateHud(ms, cells, iso) {
+      zoomHud.textContent =
+        cam.zoom.toFixed(2) + "× · " +
+        (Math.round(ms * 10) / 10).toFixed(1) + "ms · " +
+        cells + " cells" + (iso ? " · iso" : "");
+    }
+
+    function draw() {
+      const t0 = performance.now();
+      const { seed, size, dimension, smooth, iso } = readParams();
+
+      if (cacheSeed !== seed) {
+        biomeCache = new Map();
+        cacheSeed = seed;
+        cam.x = 0;
+        cam.y = 0;
+        cam.zoom = 1;
+      }
+
+      if (!imageData || imageData.width !== bufW || imageData.height !== bufH) {
+        imageData = new ImageData(bufW, bufH);
+      }
+      const data = imageData.data;
+      data.fill(0);
+
+      const worldScale = size * cam.zoom;
+      const pixelScale = worldScale * dpr;
+      const splitThreshold = size * dimension;
+      const fadeStart = splitThreshold * SMOOTH_FADE_START;
+
+      // Camera: ortho uses top-left; iso uses world point under screen center
+      const originWx = cam.x;
+      const originWy = cam.y;
+      const bounds = visibleWorldBounds(iso, pixelScale, originWx, originWy);
+      const { viewX, viewY, viewRight, viewBottom } = bounds;
+
+      const stats = { fromCache: 0, generated: 0, drawn: 0, maxDrawnDepth: 0 };
+      const halfW = bufW * 0.5;
+      const halfH = bufH * 0.5;
+
+      function paintCell(wx, wy, worldSize, biome, alpha) {
+        const rgb = BIOME_RGBA[biome];
+        if (!iso) {
+          const sx = (wx - originWx) * pixelScale;
+          const sy = (wy - originWy) * pixelScale;
+          const ss = worldSize * pixelScale + 0.5;
+          if (alpha >= 0.999) fillRectOpaque(data, bufW, bufH, sx, sy, ss, ss, rgb[0], rgb[1], rgb[2]);
+          else fillRectBlend(data, bufW, bufH, sx, sy, ss, ss, rgb[0], rgb[1], rgb[2], alpha);
+        } else {
+          // Painter's order: already traversed roughly NW→SE by gy,gx loops; for iso
+          // draw by (wx+wy) ascending so farther tiles first — handled by loop order below.
+          const s = worldSize;
+          const c0 = worldToIso(wx - originWx, wy - originWy, pixelScale);
+          const c1 = worldToIso(wx + s - originWx, wy - originWy, pixelScale);
+          const c2 = worldToIso(wx + s - originWx, wy + s - originWy, pixelScale);
+          const c3 = worldToIso(wx - originWx, wy + s - originWy, pixelScale);
+          const points = [
+            { x: c0.x + halfW, y: c0.y + halfH },
+            { x: c1.x + halfW, y: c1.y + halfH },
+            { x: c2.x + halfW, y: c2.y + halfH },
+            { x: c3.x + halfW, y: c3.y + halfH },
+          ];
+          fillDiamond(data, bufW, bufH, points, rgb[0], rgb[1], rgb[2], alpha);
+        }
+        stats.drawn++;
+      }
+
+      function blendFactor(screenSizeCss) {
+        if (!smooth) return screenSizeCss >= splitThreshold ? 1 : 0;
+        if (screenSizeCss >= splitThreshold) return 1;
+        if (screenSizeCss <= fadeStart) return 0;
+        return (screenSizeCss - fadeStart) / (splitThreshold - fadeStart);
+      }
+
+      function drawChildren(path, depth, wx, wy, worldSize, parentBiome) {
+        const childSize = worldSize / dimension;
+        const i0 = Math.max(0, Math.floor((viewX - wx) / childSize));
+        const i1 = Math.min(dimension, Math.ceil((viewRight - wx) / childSize));
+        const j0 = Math.max(0, Math.floor((viewY - wy) / childSize));
+        const j1 = Math.min(dimension, Math.ceil((viewBottom - wy) / childSize));
+        // Iso painter order: back-to-front by (i+j)
+        const cells = [];
+        for (let j = j0; j < j1; j++) {
+          for (let i = i0; i < i1; i++) {
+            cells.push(i, j);
+          }
+        }
+        if (iso) {
+          // sort pairs by i+j
+          const order = [];
+          for (let k = 0; k < cells.length; k += 2) order.push(k);
+          order.sort((a, b) => (cells[a] + cells[a + 1]) - (cells[b] + cells[b + 1]));
+          for (let o = 0; o < order.length; o++) {
+            const k = order[o];
+            const i = cells[k], j = cells[k + 1];
+            drawCell(path + "/" + i + "," + j, depth + 1, wx + i * childSize, wy + j * childSize, childSize, parentBiome, i, j);
+          }
+        } else {
+          for (let k = 0; k < cells.length; k += 2) {
+            const i = cells[k], j = cells[k + 1];
+            drawCell(path + "/" + i + "," + j, depth + 1, wx + i * childSize, wy + j * childSize, childSize, parentBiome, i, j);
+          }
+        }
+      }
+
+      function drawCell(path, depth, wx, wy, worldSize, parentBiome, i, j) {
+        if (wx >= viewRight || wy >= viewBottom || wx + worldSize <= viewX || wy + worldSize <= viewY) {
+          return;
+        }
+        const biome = ensureBiome(path, depth, wx, wy, worldSize, parentBiome, seed, i | 0, j | 0, dimension, stats);
+        const screenSizeCss = worldSize * worldScale;
+        const t = depth < MAX_DEPTH ? blendFactor(screenSizeCss) : 0;
+        if (t >= 1) {
+          drawChildren(path, depth, wx, wy, worldSize, biome);
+          return;
+        }
+        if (t > 0) {
+          drawChildren(path, depth, wx, wy, worldSize, biome);
+          paintCell(wx, wy, worldSize, biome, 1 - t);
+        } else {
+          paintCell(wx, wy, worldSize, biome, 1);
+        }
+        if (depth > stats.maxDrawnDepth) stats.maxDrawnDepth = depth;
+      }
+
+      const x0 = Math.floor(viewX);
+      const y0 = Math.floor(viewY);
+      const x1 = Math.ceil(viewRight);
+      const y1 = Math.ceil(viewBottom);
+
+      if (iso) {
+        // Diagonal sweep for painter's algorithm
+        const roots = [];
+        for (let gy = y0; gy < y1; gy++) {
+          for (let gx = x0; gx < x1; gx++) {
+            roots.push(gx, gy);
+          }
+        }
+        const order = [];
+        for (let k = 0; k < roots.length; k += 2) order.push(k);
+        order.sort((a, b) => (roots[a] + roots[a + 1]) - (roots[b] + roots[b + 1]));
+        for (let o = 0; o < order.length; o++) {
+          const k = order[o];
+          const gx = roots[k], gy = roots[k + 1];
+          drawCell(gx + "," + gy, 0, gx, gy, 1, null, 0, 0);
+        }
+      } else {
+        for (let gy = y0; gy < y1; gy++) {
+          for (let gx = x0; gx < x1; gx++) {
+            drawCell(gx + "," + gy, 0, gx, gy, 1, null, 0, 0);
+          }
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      const ms = performance.now() - t0;
+      updateHud(ms, stats.drawn, iso);
+
+      const now = performance.now();
+      if (now - lastLogAt >= 300) {
+        lastLogAt = now;
+        console.log("[biomes2] draw", {
+          seed, size, dimension, smooth, iso,
+          zoom: Math.round(cam.zoom * 100) / 100,
+          cells: stats,
+          durationMs: Math.round(ms * 100) / 100,
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      dpr = window.devicePixelRatio || 1;
+      cssW = stage.clientWidth;
+      cssH = stage.clientHeight;
+      bufW = Math.max(1, Math.floor(cssW * dpr));
+      bufH = Math.max(1, Math.floor(cssH * dpr));
+      canvas.width = bufW;
+      canvas.height = bufH;
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      imageData = new ImageData(bufW, bufH);
+    }
+
+    function scheduleDraw() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = 0; draw(); });
+    }
+
+    function resizeAndDraw() {
+      resizeCanvas();
+      scheduleDraw();
+    }
+
+    function onParamsChange() {
+      biomeCache = new Map();
+      cacheSeed = null;
+      cam.x = 0;
+      cam.y = 0;
+      cam.zoom = 1;
+      resizeAndDraw();
+    }
+
+    function screenToWorld(sx, sy, size, zoom, iso) {
+      const scale = size * zoom;
+      if (!iso) {
+        return { x: cam.x + sx / scale, y: cam.y + sy / scale };
+      }
+      // sx,sy in CSS pixels relative to canvas top-left → relative to center
+      const rx = (sx - cssW * 0.5) * dpr;
+      const ry = (sy - cssH * 0.5) * dpr;
+      const local = isoToWorld(rx, ry, scale * dpr);
+      return { x: cam.x + local.x, y: cam.y + local.y };
+    }
+
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const { size, iso } = readParams();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const before = screenToWorld(mx, my, size, cam.zoom, iso);
+      cam.zoom = Math.max(MIN_ZOOM, cam.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+      const after = screenToWorld(mx, my, size, cam.zoom, iso);
+      cam.x += before.x - after.x;
+      cam.y += before.y - after.y;
+      scheduleDraw();
+    }, { passive: false });
+
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 2) return;
+      panning = true;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!panning) return;
+      const { size, iso } = readParams();
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      if (!iso) {
+        const scale = size * cam.zoom;
+        cam.x -= dx / scale;
+        cam.y -= dy / scale;
+      } else {
+        const scale = size * cam.zoom * dpr;
+        const delta = isoToWorld(-dx * dpr, -dy * dpr, scale);
+        cam.x += delta.x;
+        cam.y += delta.y;
+      }
+      scheduleDraw();
+    });
+
+    function endPan(e) {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = "crosshair";
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    canvas.addEventListener("pointerup", endPan);
+    canvas.addEventListener("pointercancel", endPan);
+
+    seedInput.addEventListener("input", onParamsChange);
+    sizeInput.addEventListener("input", onParamsChange);
+    dimensionInput.addEventListener("input", onParamsChange);
+    smoothInput.addEventListener("change", scheduleDraw);
+    isoInput.addEventListener("change", scheduleDraw);
+    window.addEventListener("resize", resizeAndDraw);
+
+    resizeAndDraw();
+  </script>
+</body>
+</html>

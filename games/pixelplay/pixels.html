@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixels</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.6rem 1rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input[type="number"] {
+      width: 4.5rem;
+      padding: 0.25rem 0.4rem;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+      font-size: 0.875rem;
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <label>
+      Velikost (px)
+      <input id="size" type="number" min="1" value="5" />
+    </label>
+    <label>
+      Počet barev
+      <input id="colors" type="number" min="2" value="2" />
+    </label>
+  </header>
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const sizeInput = document.getElementById("size");
+    const colorsInput = document.getElementById("colors");
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function sampleRgbGradient(t) {
+      // Red → Green → Blue, t in [0, 1]
+      if (t <= 0.5) {
+        const u = t / 0.5;
+        return [
+          Math.round(lerp(255, 0, u)),
+          Math.round(lerp(0, 255, u)),
+          0,
+        ];
+      }
+      const u = (t - 0.5) / 0.5;
+      return [
+        0,
+        Math.round(lerp(255, 0, u)),
+        Math.round(lerp(0, 255, u)),
+      ];
+    }
+
+    function buildPalette(n) {
+      const count = Math.max(2, Math.floor(n) || 2);
+      if (count === 2) {
+        return ["#000000", "#ffffff"];
+      }
+      const palette = [];
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1);
+        const [r, g, b] = sampleRgbGradient(t);
+        palette.push(`rgb(${r}, ${g}, ${b})`);
+      }
+      return palette;
+    }
+
+    function storageKey(size, colorCount) {
+      return `pixelplay:pixels:${size}:${colorCount}`;
+    }
+
+    function loadPattern(size, colorCount) {
+      try {
+        const raw = localStorage.getItem(storageKey(size, colorCount));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.data)) return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function estimateStorageBytes(str) {
+      // localStorage is UTF-16; Blob byteLength ≈ UTF-8, so use 2 * length as estimate
+      return str.length * 2;
+    }
+
+    function savePattern(size, colorCount, cols, rows, data) {
+      const key = storageKey(size, colorCount);
+      const value = JSON.stringify({ cols, rows, data });
+      const bytes = estimateStorageBytes(key) + estimateStorageBytes(value);
+      try {
+        localStorage.setItem(key, value);
+        return { ok: true, bytes, key };
+      } catch (err) {
+        const quotaExceeded =
+          err &&
+          (err.name === "QuotaExceededError" ||
+            err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+            err.code === 22 ||
+            err.code === 1014);
+        console.warn("[pixels] localStorage save failed", {
+          key,
+          bytes,
+          quotaExceeded: !!quotaExceeded,
+          error: err && err.message ? err.message : String(err),
+        });
+        return { ok: false, bytes, key, quotaExceeded: !!quotaExceeded, error: err };
+      }
+    }
+
+    function resizeAndDraw() {
+      const stage = document.getElementById("stage");
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = stage.clientWidth;
+      const cssH = stage.clientHeight;
+
+      canvas.width = Math.max(1, Math.floor(cssW * dpr));
+      canvas.height = Math.max(1, Math.floor(cssH * dpr));
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw(cssW, cssH);
+    }
+
+    function draw(w, h) {
+      const t0 = performance.now();
+      const size = Math.max(1, Math.floor(Number(sizeInput.value) || 5));
+      const colorCount = Math.max(2, Math.floor(Number(colorsInput.value) || 2));
+      const palette = buildPalette(colorCount);
+      const cols = Math.ceil(w / size);
+      const rows = Math.ceil(h / size);
+      const stored = loadPattern(size, colorCount);
+      const data = new Array(cols * rows);
+      let fromStorage = 0;
+      let generated = 0;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const i = row * cols + col;
+          let idx = null;
+          if (stored && col < stored.cols && row < stored.rows) {
+            idx = stored.data[row * stored.cols + col];
+          }
+          if (idx == null || idx < 0 || idx >= palette.length) {
+            idx = (Math.random() * palette.length) | 0;
+            generated++;
+          } else {
+            fromStorage++;
+          }
+          data[i] = idx;
+          ctx.fillStyle = palette[idx];
+          ctx.fillRect(col * size, row * size, size, size);
+        }
+      }
+
+      let storage = null;
+      if (generated > 0 || !stored || stored.cols !== cols || stored.rows !== rows) {
+        storage = savePattern(size, colorCount, cols, rows, data);
+      } else {
+        storage = { ok: true, skipped: true, reason: "unchanged" };
+      }
+
+      let source;
+      if (!stored) {
+        source = "generate (new)";
+      } else if (generated === 0) {
+        source = "localStorage";
+      } else if (fromStorage === 0) {
+        source = "generate (new)";
+      } else {
+        source = "localStorage + generate (partial)";
+      }
+
+      const ms = performance.now() - t0;
+      console.log("[pixels] draw", {
+        size,
+        colors: colorCount,
+        cols,
+        rows,
+        canvas: { w, h },
+        source,
+        cells: { fromStorage, generated, total: cols * rows },
+        storage,
+        durationMs: Math.round(ms * 100) / 100,
+      });
+    }
+
+    sizeInput.addEventListener("input", resizeAndDraw);
+    colorsInput.addEventListener("input", resizeAndDraw);
+    window.addEventListener("resize", resizeAndDraw);
+
+    resizeAndDraw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAND•BALL v1</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="wrap" class="screen-settings orient-portrait">
+      <div id="top-bar">
+        <nav id="nav">
+          <button type="button" id="nav-play" class="nav-btn" data-screen="play">Hra</button>
+          <button type="button" id="nav-test" class="nav-btn" data-screen="test">Test</button>
+          <button type="button" id="nav-settings" class="nav-btn active" data-screen="settings">Nastavení</button>
+        </nav>
+      </div>
+
+      <section id="play-screen" class="screen hidden">
+        <div class="play-toolbar">
+          <div class="seg" role="group" aria-label="Court orientation">
+            <button type="button" class="seg-btn orient-btn" data-orient="landscape">
+              Landscape
+            </button>
+            <button type="button" class="seg-btn orient-btn active" data-orient="portrait">
+              Portrait 90°
+            </button>
+          </div>
+        </div>
+        <header id="hud">
+          <div id="score">
+            <span id="score-home">0</span>
+            <span class="sep">:</span>
+            <span id="score-away">0</span>
+          </div>
+          <div id="title">HAND•BALL</div>
+          <div id="clock">3:00</div>
+        </header>
+        <canvas id="game" width="480" height="960"></canvas>
+        <footer id="help">
+          <span id="help-match">Arrows move · Shift sprint · S pass near / switch · A pass far · D shoot / tackle · R restart</span>
+          <span id="help-solo" class="hidden">Arrows move · Shift sprint · S near · A far · D shoot · R reset</span>
+        </footer>
+        <div id="overlay" class="hidden">
+          <div id="overlay-msg"></div>
+          <div id="overlay-hint">Press R to restart</div>
+        </div>
+      </section>
+
+      <section id="test-screen" class="screen hidden">
+        <div class="settings-block">
+          <h2 class="settings-heading">Testovací situace</h2>
+          <p class="settings-hint">Jednoduché scény pro odladění pohybu, přihrávek a střelby.</p>
+          <div class="test-list">
+            <button type="button" id="test-solo" class="test-item">
+              <span class="test-item-title">Solo</span>
+              <span class="test-item-desc">Jeden hráč na hřišti — běh a házení</span>
+            </button>
+            <button type="button" id="test-double" class="test-item">
+              <span class="test-item-title">Double</span>
+              <span class="test-item-desc">Spoluhráč stojí uprostřed na 9m — přihrávky</span>
+            </button>
+            <button type="button" id="test-triple" class="test-item">
+              <span class="test-item-title">Triple</span>
+              <span class="test-item-desc">Dva spoluhráči (před 9m + na 9m) — S blízký, A vzdálený</span>
+            </button>
+            <button type="button" id="test-single" class="test-item">
+              <span class="test-item-title">Single team</span>
+              <span class="test-item-desc">Celý tým v útoku (bez GK) — míč má střední spojka</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings-screen" class="screen">
+        <div class="settings-block">
+          <h2 class="settings-heading">Orientace hřiště</h2>
+          <div class="seg" role="group" aria-label="Court orientation">
+            <button type="button" class="seg-btn orient-btn" data-orient="landscape">
+              Landscape
+            </button>
+            <button type="button" class="seg-btn orient-btn active" data-orient="portrait">
+              Portrait 90°
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <div class="settings-heading-row">
+            <h2 class="settings-heading">Výchozí pozice</h2>
+            <button type="button" id="formation-reset" class="text-btn">Reset</button>
+          </div>
+          <p class="settings-hint">
+            Nahoře útok · dole obrana · přetáhni hráče. Po ztrátě míče se spoluhráči stahují na obranné pozice.
+          </p>
+          <canvas id="formation-editor" width="400" height="800"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <aside id="right-panel" aria-label="Nastavení hry">
+      <h2 class="panel-heading">Rychlosti</h2>
+      <div id="tuners">
+        <label class="tuner">
+          <span class="tuner-label">Rychlost hráče</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-player-speed" min="40" max="400" step="5" value="145" />
+            <span class="tuner-unit">px/s</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Rychlost přihrávky</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-pass-speed" min="80" max="800" step="10" value="420" />
+            <span class="tuner-unit">px/s</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Rychlost driblingu</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-dribble-speed" min="1" max="20" step="0.5" value="7" />
+            <span class="tuner-unit">Hz</span>
+          </div>
+        </label>
+
+        <h2 class="panel-heading panel-heading-sub">Přihrávka S</h2>
+        <label class="tuner">
+          <span class="tuner-label">Počáteční poloměr</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-pass-range-min" min="5" max="200" step="5" value="30" />
+            <span class="tuner-unit">px</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Počáteční rychlost</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-pass-range-grow" min="20" max="600" step="10" value="160" />
+            <span class="tuner-unit">px/s</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Tempo růstu</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-pass-range-expo" min="0" max="5" step="0.1" value="1.2" />
+            <span class="tuner-unit">α</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Maximum</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-pass-range-max" min="40" max="600" step="10" value="380" />
+            <span class="tuner-unit">px</span>
+          </div>
+        </label>
+
+        <h2 class="panel-heading panel-heading-sub">Přesnost hodu</h2>
+        <label class="tuner">
+          <span class="tuner-label">Úhel výseče</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-throw-spread" min="0.5" max="40" step="0.5" value="6" />
+            <span class="tuner-unit">%</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Alfa kužele</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-throw-alpha" min="0.05" max="1" step="0.05" value="0.28" />
+            <span class="tuner-unit">α</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Dosah kužele</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-throw-fade" min="40" max="400" step="10" value="140" />
+            <span class="tuner-unit">px</span>
+          </div>
+        </label>
+
+        <h2 class="panel-heading panel-heading-sub">Vidění</h2>
+        <label class="tuner">
+          <span class="tuner-label">Přímé vidění</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-vision-direct" min="2" max="90" step="1" value="14" />
+            <span class="tuner-unit">°</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Periferní vidění</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-vision-periph" min="5" max="180" step="1" value="40" />
+            <span class="tuner-unit">°</span>
+          </div>
+        </label>
+        <label class="tuner">
+          <span class="tuner-label">Alfa kuželů</span>
+          <div class="tuner-row">
+            <input type="number" id="tuner-vision-alpha" min="0.05" max="1" step="0.05" value="0.22" />
+            <span class="tuner-unit">α</span>
+          </div>
+        </label>
+      </div>
+    </aside>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

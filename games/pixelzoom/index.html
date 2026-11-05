@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixelzoom</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.6rem 1rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input[type="number"] {
+      width: 4.5rem;
+      padding: 0.25rem 0.4rem;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #8af;
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #zoomHud {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.75rem;
+      z-index: 1;
+      pointer-events: none;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <label>
+      Velikost (px)
+      <input id="size" type="number" min="1" value="5" />
+    </label>
+    <label>
+      Počet barev
+      <input id="colors" type="number" min="2" value="2" />
+    </label>
+    <label>
+      Dimenze
+      <input id="dimension" type="number" min="2" value="8" />
+    </label>
+    <label>
+      <input id="smooth" type="checkbox" />
+      Plynulý přechod
+    </label>
+  </header>
+  <div id="stage">
+    <div id="zoomHud">1.00×</div>
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const MAX_DEPTH = 8;
+    const MIN_ZOOM = 1;
+    /** Fade starts when parent screen size reaches this fraction of the hard-split size. */
+    const SMOOTH_FADE_START = 0.5;
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const sizeInput = document.getElementById("size");
+    const colorsInput = document.getElementById("colors");
+    const dimensionInput = document.getElementById("dimension");
+    const smoothInput = document.getElementById("smooth");
+    const zoomHud = document.getElementById("zoomHud");
+    const stage = document.getElementById("stage");
+
+    const cam = { x: 0, y: 0, zoom: 1 };
+    /** @type {Map<string, number>} */
+    let cellColors = new Map();
+    let activeStorageKey = null;
+    let storageDirty = false;
+    let cssW = 1;
+    let cssH = 1;
+    let rafId = 0;
+    let saveTimer = 0;
+    let lastLogAt = 0;
+    let panning = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function sampleRgbGradient(t) {
+      if (t <= 0.5) {
+        const u = t / 0.5;
+        return [
+          Math.round(lerp(255, 0, u)),
+          Math.round(lerp(0, 255, u)),
+          0,
+        ];
+      }
+      const u = (t - 0.5) / 0.5;
+      return [
+        0,
+        Math.round(lerp(255, 0, u)),
+        Math.round(lerp(0, 255, u)),
+      ];
+    }
+
+    function buildPalette(n) {
+      const count = Math.max(2, Math.floor(n) || 2);
+      if (count === 2) {
+        return ["#000000", "#ffffff"];
+      }
+      const palette = [];
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1);
+        const [r, g, b] = sampleRgbGradient(t);
+        palette.push(`rgb(${r}, ${g}, ${b})`);
+      }
+      return palette;
+    }
+
+    function readParams() {
+      return {
+        size: Math.max(1, Math.floor(Number(sizeInput.value) || 5)),
+        colorCount: Math.max(2, Math.floor(Number(colorsInput.value) || 2)),
+        dimension: Math.max(2, Math.floor(Number(dimensionInput.value) || 8)),
+        smooth: !!smoothInput.checked,
+      };
+    }
+
+    function storageKey(size, colorCount, dimension) {
+      return `pixelzoom:v1:${size}:${colorCount}:${dimension}`;
+    }
+
+    function estimateStorageBytes(str) {
+      return str.length * 2;
+    }
+
+    function loadCache(key) {
+      cellColors = new Map();
+      activeStorageKey = key;
+      storageDirty = false;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return { loaded: false, count: 0 };
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          return { loaded: false, count: 0 };
+        }
+        for (const [path, idx] of Object.entries(parsed)) {
+          if (typeof idx === "number" && idx >= 0) {
+            cellColors.set(path, idx);
+          }
+        }
+        return { loaded: true, count: cellColors.size };
+      } catch {
+        return { loaded: false, count: 0 };
+      }
+    }
+
+    function saveCacheNow() {
+      if (!activeStorageKey || !storageDirty) {
+        return { ok: true, skipped: true, reason: "unchanged" };
+      }
+      const obj = Object.fromEntries(cellColors);
+      const value = JSON.stringify(obj);
+      const bytes =
+        estimateStorageBytes(activeStorageKey) + estimateStorageBytes(value);
+      try {
+        localStorage.setItem(activeStorageKey, value);
+        storageDirty = false;
+        return { ok: true, bytes, key: activeStorageKey, cells: cellColors.size };
+      } catch (err) {
+        const quotaExceeded =
+          err &&
+          (err.name === "QuotaExceededError" ||
+            err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+            err.code === 22 ||
+            err.code === 1014);
+        console.warn("[pixelzoom] localStorage save failed", {
+          key: activeStorageKey,
+          bytes,
+          quotaExceeded: !!quotaExceeded,
+          error: err && err.message ? err.message : String(err),
+        });
+        return {
+          ok: false,
+          bytes,
+          key: activeStorageKey,
+          quotaExceeded: !!quotaExceeded,
+          error: err,
+        };
+      }
+    }
+
+    function scheduleSaveCache() {
+      if (!storageDirty) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        saveTimer = 0;
+        const result = saveCacheNow();
+        if (!result.skipped) {
+          console.log("[pixelzoom] storage flush", result);
+        }
+      }, 400);
+    }
+
+    function pickColorIndex(parentIdx, colorCount) {
+      if (parentIdx == null) {
+        return (Math.random() * colorCount) | 0;
+      }
+      if (colorCount === 2) {
+        return (Math.random() * 2) | 0;
+      }
+      const radius = Math.max(1, Math.floor((colorCount - 1) / 4));
+      const lo = Math.max(0, parentIdx - radius);
+      const hi = Math.min(colorCount - 1, parentIdx + radius);
+      return lo + ((Math.random() * (hi - lo + 1)) | 0);
+    }
+
+    function ensureColor(path, parentIdx, colorCount, stats) {
+      const existing = cellColors.get(path);
+      if (existing != null && existing >= 0 && existing < colorCount) {
+        stats.fromStorage++;
+        return existing;
+      }
+      const idx = pickColorIndex(parentIdx, colorCount);
+      cellColors.set(path, idx);
+      storageDirty = true;
+      stats.generated++;
+      return idx;
+    }
+
+    function updateHud() {
+      zoomHud.textContent = cam.zoom.toFixed(2) + "×";
+    }
+
+    function draw() {
+      const t0 = performance.now();
+      const { size, colorCount, dimension, smooth } = readParams();
+      const key = storageKey(size, colorCount, dimension);
+      if (key !== activeStorageKey) {
+        if (saveTimer) {
+          clearTimeout(saveTimer);
+          saveTimer = 0;
+          saveCacheNow();
+        }
+        loadCache(key);
+        cam.x = 0;
+        cam.y = 0;
+        cam.zoom = 1;
+      }
+
+      const palette = buildPalette(colorCount);
+      const scale = size * cam.zoom;
+      const splitThreshold = size * dimension;
+      const fadeStart = splitThreshold * SMOOTH_FADE_START;
+      const viewX = cam.x;
+      const viewY = cam.y;
+      const viewW = cssW / scale;
+      const viewH = cssH / scale;
+      const viewRight = viewX + viewW;
+      const viewBottom = viewY + viewH;
+
+      ctx.clearRect(0, 0, cssW, cssH);
+      ctx.globalAlpha = 1;
+
+      const stats = {
+        fromStorage: 0,
+        generated: 0,
+        drawn: 0,
+        maxDrawnDepth: 0,
+      };
+
+      let lastFill = "";
+      let lastAlpha = 1;
+
+      function setFill(fill, alpha) {
+        if (alpha !== lastAlpha) {
+          ctx.globalAlpha = alpha;
+          lastAlpha = alpha;
+        }
+        if (fill !== lastFill) {
+          ctx.fillStyle = fill;
+          lastFill = fill;
+        }
+      }
+
+      function paintCell(wx, wy, worldSize, colorIdx, alpha) {
+        const screenSize = worldSize * scale;
+        const sx = (wx - cam.x) * scale;
+        const sy = (wy - cam.y) * scale;
+        setFill(palette[colorIdx], alpha);
+        ctx.fillRect(sx, sy, screenSize + 0.5, screenSize + 0.5);
+        stats.drawn++;
+      }
+
+      function drawChildren(path, depth, wx, wy, worldSize, colorIdx) {
+        const childSize = worldSize / dimension;
+        const i0 = Math.max(0, Math.floor((viewX - wx) / childSize));
+        const i1 = Math.min(dimension, Math.ceil((viewRight - wx) / childSize));
+        const j0 = Math.max(0, Math.floor((viewY - wy) / childSize));
+        const j1 = Math.min(dimension, Math.ceil((viewBottom - wy) / childSize));
+        for (let j = j0; j < j1; j++) {
+          for (let i = i0; i < i1; i++) {
+            drawCell(
+              path + "/" + i + "," + j,
+              depth + 1,
+              wx + i * childSize,
+              wy + j * childSize,
+              childSize,
+              colorIdx
+            );
+          }
+        }
+      }
+
+      function blendFactor(screenSize) {
+        if (!smooth) {
+          return screenSize >= splitThreshold ? 1 : 0;
+        }
+        if (screenSize >= splitThreshold) return 1;
+        if (screenSize <= fadeStart) return 0;
+        return (screenSize - fadeStart) / (splitThreshold - fadeStart);
+      }
+
+      function drawCell(path, depth, wx, wy, worldSize, parentIdx) {
+        if (wx >= viewRight || wy >= viewBottom || wx + worldSize <= viewX || wy + worldSize <= viewY) {
+          return;
+        }
+
+        const colorIdx = ensureColor(path, parentIdx, colorCount, stats);
+        const screenSize = worldSize * scale;
+        const canSplit = depth < MAX_DEPTH;
+        const t = canSplit ? blendFactor(screenSize) : 0;
+
+        if (t >= 1) {
+          drawChildren(path, depth, wx, wy, worldSize, colorIdx);
+          return;
+        }
+
+        if (t > 0) {
+          drawChildren(path, depth, wx, wy, worldSize, colorIdx);
+          paintCell(wx, wy, worldSize, colorIdx, 1 - t);
+        } else {
+          paintCell(wx, wy, worldSize, colorIdx, 1);
+        }
+
+        if (depth > stats.maxDrawnDepth) stats.maxDrawnDepth = depth;
+      }
+
+      const x0 = Math.floor(viewX);
+      const y0 = Math.floor(viewY);
+      const x1 = Math.ceil(viewRight);
+      const y1 = Math.ceil(viewBottom);
+
+      for (let gy = y0; gy < y1; gy++) {
+        for (let gx = x0; gx < x1; gx++) {
+          drawCell(gx + "," + gy, 0, gx, gy, 1, null);
+        }
+      }
+
+      if (lastAlpha !== 1) {
+        ctx.globalAlpha = 1;
+      }
+
+      scheduleSaveCache();
+
+      let source;
+      if (stats.generated === 0 && stats.fromStorage > 0) {
+        source = "localStorage";
+      } else if (stats.fromStorage === 0) {
+        source = "generate (new)";
+      } else {
+        source = "localStorage + generate (partial)";
+      }
+
+      updateHud();
+
+      const ms = performance.now() - t0;
+      const now = performance.now();
+      if (now - lastLogAt >= 300) {
+        lastLogAt = now;
+        console.log("[pixelzoom] draw", {
+          size,
+          colors: colorCount,
+          dimension,
+          smooth,
+          zoom: Math.round(cam.zoom * 100) / 100,
+          depthCap: MAX_DEPTH,
+          maxDrawnDepth: stats.maxDrawnDepth,
+          canvas: { w: cssW, h: cssH },
+          source,
+          cells: {
+            fromStorage: stats.fromStorage,
+            generated: stats.generated,
+            drawn: stats.drawn,
+            cached: cellColors.size,
+          },
+          storage: { dirty: storageDirty, deferred: true },
+          durationMs: Math.round(ms * 100) / 100,
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      cssW = stage.clientWidth;
+      cssH = stage.clientHeight;
+      canvas.width = Math.max(1, Math.floor(cssW * dpr));
+      canvas.height = Math.max(1, Math.floor(cssH * dpr));
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function scheduleDraw() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        draw();
+      });
+    }
+
+    function resizeAndDraw() {
+      resizeCanvas();
+      scheduleDraw();
+    }
+
+    function onParamsChange() {
+      const { size, colorCount, dimension } = readParams();
+      const key = storageKey(size, colorCount, dimension);
+      if (key !== activeStorageKey) {
+        loadCache(key);
+      }
+      cam.x = 0;
+      cam.y = 0;
+      cam.zoom = 1;
+      resizeAndDraw();
+    }
+
+    function screenToWorld(sx, sy, size, zoom) {
+      const scale = size * zoom;
+      return {
+        x: cam.x + sx / scale,
+        y: cam.y + sy / scale,
+      };
+    }
+
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const { size } = readParams();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const before = screenToWorld(mx, my, size, cam.zoom);
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        cam.zoom = Math.max(MIN_ZOOM, cam.zoom * factor);
+        const after = screenToWorld(mx, my, size, cam.zoom);
+        cam.x += before.x - after.x;
+        cam.y += before.y - after.y;
+        scheduleDraw();
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 2) return;
+      panning = true;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!panning) return;
+      const { size } = readParams();
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      const scale = size * cam.zoom;
+      cam.x -= dx / scale;
+      cam.y -= dy / scale;
+      scheduleDraw();
+    });
+
+    function endPan(e) {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = "crosshair";
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    canvas.addEventListener("pointerup", endPan);
+    canvas.addEventListener("pointercancel", endPan);
+
+    sizeInput.addEventListener("input", onParamsChange);
+    colorsInput.addEventListener("input", onParamsChange);
+    dimensionInput.addEventListener("input", onParamsChange);
+    smoothInput.addEventListener("change", scheduleDraw);
+    window.addEventListener("resize", resizeAndDraw);
+    window.addEventListener("beforeunload", () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveCacheNow();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveCacheNow();
+      }
+    });
+
+    {
+      const { size, colorCount, dimension } = readParams();
+      loadCache(storageKey(size, colorCount, dimension));
+      resizeAndDraw();
+    }
+  </script>
+</body>
+</html>

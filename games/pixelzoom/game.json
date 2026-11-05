@@ -1,0 +1,17 @@
+{
+  "slug": "pixelzoom",
+  "title": "Smart Biomes",
+  "description": "Procedurální biomy se spojitým zoomem: pevnina, řeky a biomy drží koherenci napříč měřítky. Starší varianty biomes/biomes2/biomes3 ve složce.",
+  "file": "smartbiomes.html",
+  "tags": [
+    "procedural",
+    "biomes",
+    "zoom",
+    "canvas",
+    "experiment"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-19",
+  "controls": "Tažení pan, kolečko zoom ke kurzoru",
+  "thumbnail": "screenshot.png"
+}

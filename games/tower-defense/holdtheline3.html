@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hold The Line 3 — Half Width, Double Waves</title>
+  <style>
+    :root {
+      --bg: #1a1f2e;
+      --panel: #242b3d;
+      --border: #3a4560;
+      --text: #e8ecf4;
+      --muted: #9aa3b8;
+      --accent: #5b9fd4;
+      --good: #5cb87a;
+      --warn: #d4a05b;
+      --bad: #d45b5b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      grid-template-rows: auto 1fr;
+      height: 100%;
+    }
+
+    #hud {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.65rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #hud .stat {
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    #hud .stat strong {
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    #hud .status {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    #hud .status.alert { color: var(--warn); }
+    #hud .status.bad { color: var(--bad); }
+    #hud .status.good { color: var(--good); }
+
+    #stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #12161f;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    #sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+    }
+
+    #sidebar h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #1e2535;
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: #283044;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn .price { color: var(--warn); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .btn .meta { color: var(--muted); font-size: 0.75rem; }
+
+    #btn-wave {
+      background: #2a4a3a;
+      border-color: #3d6b4f;
+      font-weight: 600;
+      justify-content: center;
+      padding: 0.7rem;
+    }
+
+    #btn-wave:hover:not(:disabled) { background: #355a46; }
+
+    #btn-restart {
+      margin-top: auto;
+      justify-content: center;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      #sidebar {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        max-height: 40vh;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-content: flex-start;
+      }
+      #sidebar .section { flex: 1 1 140px; }
+      #btn-restart { margin-top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header id="hud">
+    <div class="stat">Kredity <strong id="credits">100</strong></div>
+    <div class="stat">Životy <strong id="lives">20</strong></div>
+    <div class="stat">Vojáci <strong id="soldiers-count">4</strong></div>
+    <div class="stat">Vlna <strong id="wave">0</strong>/<span id="wave-max">10</span></div>
+    <div class="status" id="status">Připraven — ještě užší pole, 2× horda</div>
+  </header>
+
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <aside id="sidebar">
+    <div class="section">
+      <h2>Upgrady</h2>
+      <button type="button" class="btn" id="upg-range">
+        <span>Dosah <span class="meta" id="upg-range-lvl">0/5</span></span>
+        <span class="price" id="upg-range-price">70</span>
+      </button>
+      <button type="button" class="btn" id="upg-rate">
+        <span>Rychlost střelby <span class="meta" id="upg-rate-lvl">0/5</span></span>
+        <span class="price" id="upg-rate-price">75</span>
+      </button>
+      <button type="button" class="btn" id="upg-dmg">
+        <span>Síla nábojů <span class="meta" id="upg-dmg-lvl">0/5</span></span>
+        <span class="price" id="upg-dmg-price">80</span>
+      </button>
+      <button type="button" class="btn" id="upg-pierce">
+        <span>Průraznost <span class="meta" id="upg-pierce-lvl">0%</span></span>
+        <span class="price" id="upg-pierce-price">85</span>
+      </button>
+      <button type="button" class="btn" id="upg-headshot">
+        <span>Headshot <span class="meta" id="upg-headshot-lvl">1%</span></span>
+        <span class="price" id="upg-headshot-price">90</span>
+      </button>
+      <button type="button" class="btn" id="upg-accuracy">
+        <span>Přesnost <span class="meta" id="upg-accuracy-lvl">10%</span></span>
+        <span class="price" id="upg-accuracy-price">80</span>
+      </button>
+      <p class="hint">Dosah / rate / dmg · Průraznost +5 % · Headshot +1 % (2× dmg) · Přesnost −10 % úhlu (zelený kužel)</p>
+    </div>
+
+    <div class="section">
+      <h2>Posily</h2>
+      <button type="button" class="btn" id="btn-buy-soldier">
+        <span>Koupit vojáka</span>
+        <span class="price" id="buy-soldier-price">90</span>
+      </button>
+      <p class="hint">Nový obránce do trench pásu (neomezeně).</p>
+    </div>
+
+    <div class="section">
+      <h2>Vlna</h2>
+      <button type="button" class="btn" id="btn-wave">Další vlna</button>
+    </div>
+
+    <div class="section">
+      <h2>Debug</h2>
+      <button type="button" class="btn" id="btn-credits">+1000 kreditů</button>
+    </div>
+
+    <button type="button" class="btn" id="btn-restart">Restart</button>
+  </aside>
+
+  <script>
+(function () {
+  "use strict";
+
+  const WORLD_W = 120; // polovina oproti holdtheline2 (1/8 původní šíře)
+  const WORLD_H = 640;
+  const SPAWN_Y = 36;
+  const TRENCH_TOP = 520;
+  const TRENCH_BOTTOM = 590;
+  const BREACH_Y = 620;
+  const SOLDIER_START = 4;
+
+  const BASE_WEAPON = {
+    range: 210,
+    fireRate: 1.1,
+    damage: 14,
+    vision: 0.85, // half-angle of vision cone (what they can see)
+    accuracy: 0.55 / 3, // half-angle of shot accuracy cone (green), shrinks with upgrades
+    projectileSpeed: 520,
+  };
+
+  const UPGRADE_MAX = 10;
+  const UPGRADE_BASE = {
+    range: 70, rate: 75, dmg: 80,
+    pierce: 85, headshot: 90, accuracy: 80,
+  };
+  const SOLDIER_BASE_COST = 90;
+
+  const ENEMY_TYPES = {
+    basic: { hp: 36, speed: 22, reward: 6, radius: 7, color: "#d47a5b" },
+    fast: { hp: 24, speed: 38, reward: 8, radius: 6, color: "#d4c05b" },
+    tank: { hp: 110, speed: 13, reward: 14, radius: 11, color: "#8a5bd4" },
+  };
+
+  const WAVES = [
+    [{ type: "basic", count: 20, interval: 0.45 }],
+    [{ type: "basic", count: 24, interval: 0.35 }, { type: "fast", count: 12, interval: 0.3 }],
+    [{ type: "basic", count: 28, interval: 0.3 }, { type: "tank", count: 6, interval: 0.7 }],
+    [{ type: "fast", count: 36, interval: 0.22 }],
+    [{ type: "basic", count: 32, interval: 0.28 }, { type: "tank", count: 10, interval: 0.55 }],
+    [{ type: "fast", count: 28, interval: 0.2 }, { type: "tank", count: 12, interval: 0.5 }],
+    [{ type: "basic", count: 36, interval: 0.22 }, { type: "fast", count: 24, interval: 0.18 }, { type: "tank", count: 10, interval: 0.45 }],
+    [{ type: "tank", count: 20, interval: 0.4 }, { type: "fast", count: 32, interval: 0.16 }],
+    [{ type: "basic", count: 44, interval: 0.18 }, { type: "tank", count: 16, interval: 0.35 }],
+    [{ type: "fast", count: 40, interval: 0.14 }, { type: "tank", count: 24, interval: 0.3 }, { type: "basic", count: 32, interval: 0.16 }],
+  ];
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const el = {
+    credits: document.getElementById("credits"),
+    lives: document.getElementById("lives"),
+    soldiersCount: document.getElementById("soldiers-count"),
+    wave: document.getElementById("wave"),
+    waveMax: document.getElementById("wave-max"),
+    status: document.getElementById("status"),
+    btnWave: document.getElementById("btn-wave"),
+    btnRestart: document.getElementById("btn-restart"),
+    btnBuy: document.getElementById("btn-buy-soldier"),
+    buyPrice: document.getElementById("buy-soldier-price"),
+    upgRange: document.getElementById("upg-range"),
+    upgRate: document.getElementById("upg-rate"),
+    upgDmg: document.getElementById("upg-dmg"),
+    upgPierce: document.getElementById("upg-pierce"),
+    upgHeadshot: document.getElementById("upg-headshot"),
+    upgAccuracy: document.getElementById("upg-accuracy"),
+    upgRangeLvl: document.getElementById("upg-range-lvl"),
+    upgRateLvl: document.getElementById("upg-rate-lvl"),
+    upgDmgLvl: document.getElementById("upg-dmg-lvl"),
+    upgPierceLvl: document.getElementById("upg-pierce-lvl"),
+    upgHeadshotLvl: document.getElementById("upg-headshot-lvl"),
+    upgAccuracyLvl: document.getElementById("upg-accuracy-lvl"),
+    upgRangePrice: document.getElementById("upg-range-price"),
+    upgRatePrice: document.getElementById("upg-rate-price"),
+    upgDmgPrice: document.getElementById("upg-dmg-price"),
+    upgPiercePrice: document.getElementById("upg-pierce-price"),
+    upgHeadshotPrice: document.getElementById("upg-headshot-price"),
+    upgAccuracyPrice: document.getElementById("upg-accuracy-price"),
+  };
+  el.waveMax.textContent = String(WAVES.length);
+
+  let state;
+  let view = { scale: 1, ox: 0, oy: 0 };
+  let hoverSoldier = null;
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function upgradeCost(kind) {
+    return Math.floor(UPGRADE_BASE[kind] * Math.pow(1.45, state.upgrades[kind]));
+  }
+
+  function soldierCost() {
+    const n = state.soldiers.length - SOLDIER_START;
+    return Math.floor(SOLDIER_BASE_COST * Math.pow(1.35, Math.max(0, n)));
+  }
+
+  function currentRange() {
+    return BASE_WEAPON.range * (1 + 0.18 * state.upgrades.range);
+  }
+
+  function currentFireRate() {
+    return BASE_WEAPON.fireRate * (1 + 0.2 * state.upgrades.rate);
+  }
+
+  function currentDamage() {
+    return BASE_WEAPON.damage * (1 + 0.22 * state.upgrades.dmg);
+  }
+
+  function currentPierceChance() {
+    return state.upgrades.pierce * 0.05; // 0%, 5%, 10%, …
+  }
+
+  function currentHeadshotChance() {
+    return 0.01 + state.upgrades.headshot * 0.01; // 1%, 2%, 3%, …
+  }
+
+  // Shot deviation half-angle; each accuracy upgrade shrinks by 10% relatively
+  function currentAccuracySpread() {
+    return BASE_WEAPON.accuracy * Math.pow(0.9, state.upgrades.accuracy);
+  }
+
+  // Display rating: starts at 10%, grows as angle shrinks
+  function currentAccuracyDisplay() {
+    return Math.round(10 / Math.pow(0.9, state.upgrades.accuracy));
+  }
+
+  function createSoldier(x) {
+    const y = (TRENCH_TOP + TRENCH_BOTTOM) / 2 + (Math.random() - 0.5) * 16;
+    return {
+      x: clamp(x, 40, WORLD_W - 40),
+      y: clamp(y, TRENCH_TOP + 12, TRENCH_BOTTOM - 12),
+      r: 7,
+      facing: -Math.PI / 2, // up
+      cooldown: Math.random() * 0.4,
+      paceDir: Math.random() < 0.5 ? -1 : 1,
+      paceTimer: 0.4 + Math.random() * 1.2,
+      paceSpeed: 28 + Math.random() * 22,
+    };
+  }
+
+  function resetGame() {
+    state = {
+      soldiers: [],
+      enemies: [],
+      projectiles: [],
+      credits: 100,
+      lives: 20,
+      waveIndex: 0,
+      waveActive: false,
+      spawnQueue: [],
+      spawnTimer: 0,
+      upgrades: { range: 0, rate: 0, dmg: 0, pierce: 0, headshot: 0, accuracy: 0 },
+      gameOver: false,
+      won: false,
+      nextEnemyId: 1,
+    };
+
+    const spacing = WORLD_W / (SOLDIER_START + 1);
+    for (let i = 0; i < SOLDIER_START; i++) {
+      state.soldiers.push(createSoldier(spacing * (i + 1)));
+    }
+    updateUI();
+  }
+
+  function setStatus(text, cls) {
+    el.status.textContent = text;
+    el.status.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function updateUI() {
+    el.credits.textContent = String(Math.floor(state.credits));
+    el.lives.textContent = String(state.lives);
+    el.soldiersCount.textContent = String(state.soldiers.length);
+    el.wave.textContent = String(state.waveIndex);
+    el.btnWave.disabled = state.waveActive || state.gameOver || state.won || state.waveIndex >= WAVES.length;
+
+    const kinds = [
+      ["range", el.upgRange, el.upgRangeLvl, el.upgRangePrice, "lvl"],
+      ["rate", el.upgRate, el.upgRateLvl, el.upgRatePrice, "lvl"],
+      ["dmg", el.upgDmg, el.upgDmgLvl, el.upgDmgPrice, "lvl"],
+      ["pierce", el.upgPierce, el.upgPierceLvl, el.upgPiercePrice, "pierce"],
+      ["headshot", el.upgHeadshot, el.upgHeadshotLvl, el.upgHeadshotPrice, "headshot"],
+      ["accuracy", el.upgAccuracy, el.upgAccuracyLvl, el.upgAccuracyPrice, "accuracy"],
+    ];
+    for (const [kind, btn, lvlEl, priceEl, mode] of kinds) {
+      const lvl = state.upgrades[kind];
+      if (mode === "pierce") lvlEl.textContent = Math.round(currentPierceChance() * 100) + "%";
+      else if (mode === "headshot") lvlEl.textContent = Math.round(currentHeadshotChance() * 100) + "%";
+      else if (mode === "accuracy") lvlEl.textContent = currentAccuracyDisplay() + "%";
+      else lvlEl.textContent = lvl + "/" + UPGRADE_MAX;
+
+      if (lvl >= UPGRADE_MAX) {
+        priceEl.textContent = "MAX";
+        btn.disabled = true;
+      } else {
+        const cost = upgradeCost(kind);
+        priceEl.textContent = String(cost);
+        btn.disabled = state.gameOver || state.won || state.credits < cost;
+      }
+    }
+
+    const cost = soldierCost();
+    el.buyPrice.textContent = String(cost);
+    el.btnBuy.disabled = state.gameOver || state.won || state.credits < cost;
+  }
+
+  function buyUpgrade(kind) {
+    if (state.gameOver || state.won) return;
+    if (state.upgrades[kind] >= UPGRADE_MAX) return;
+    const cost = upgradeCost(kind);
+    if (state.credits < cost) return;
+    state.credits -= cost;
+    state.upgrades[kind] += 1;
+    updateUI();
+  }
+
+  function buySoldier() {
+    if (state.gameOver || state.won) return;
+    const cost = soldierCost();
+    if (state.credits < cost) return;
+    state.credits -= cost;
+    // Place between existing or random in trench
+    let x = 80 + Math.random() * (WORLD_W - 160);
+    if (state.soldiers.length) {
+      const sorted = state.soldiers.slice().sort((a, b) => a.x - b.x);
+      let bestGap = 0, bestX = x;
+      let prev = 40;
+      for (const s of sorted) {
+        const gap = s.x - prev;
+        if (gap > bestGap) {
+          bestGap = gap;
+          bestX = (prev + s.x) / 2;
+        }
+        prev = s.x;
+      }
+      if (WORLD_W - 40 - prev > bestGap) bestX = (prev + WORLD_W - 40) / 2;
+      x = bestX;
+    }
+    state.soldiers.push(createSoldier(x));
+    updateUI();
+  }
+
+  function startWave() {
+    if (state.gameOver || state.won || state.waveActive) return;
+    if (state.waveIndex >= WAVES.length) return;
+
+    const groups = WAVES[state.waveIndex];
+    state.spawnQueue = [];
+    for (const g of groups) {
+      for (let i = 0; i < g.count; i++) {
+        state.spawnQueue.push({ type: g.type, interval: g.interval });
+      }
+    }
+    for (let i = state.spawnQueue.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = state.spawnQueue[i];
+      state.spawnQueue[i] = state.spawnQueue[j];
+      state.spawnQueue[j] = t;
+    }
+
+    state.waveActive = true;
+    state.spawnTimer = 0.1;
+    state.waveIndex += 1;
+    setStatus("Vlna " + state.waveIndex + " — drž linii!", "alert");
+    updateUI();
+  }
+
+  function spawnEnemy(type) {
+    const def = ENEMY_TYPES[type];
+    state.enemies.push({
+      id: state.nextEnemyId++,
+      type,
+      hp: def.hp,
+      maxHp: def.hp,
+      speed: def.speed * (0.9 + Math.random() * 0.2),
+      reward: def.reward,
+      radius: def.radius,
+      color: def.color,
+      x: 50 + Math.random() * (WORLD_W - 100),
+      y: SPAWN_Y + Math.random() * 20,
+      drift: (Math.random() - 0.5) * 40,
+      dead: false,
+    });
+  }
+
+  function killEnemy(e) {
+    if (e.dead) return;
+    e.dead = true;
+    state.credits += e.reward;
+    updateUI();
+  }
+
+  function enemyBreached(e) {
+    e.dead = true;
+    state.lives -= 1;
+    if (state.lives <= 0) {
+      state.lives = 0;
+      state.gameOver = true;
+      state.waveActive = false;
+      setStatus("Prohra — linie prolomena!", "bad");
+    }
+    updateUI();
+  }
+
+  function angleTo(ax, ay, bx, by) {
+    return Math.atan2(by - ay, bx - ax);
+  }
+
+  function angleDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+
+  function findTarget(soldier, range, spread) {
+    let best = null, bestD = Infinity;
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - soldier.x, e.y - soldier.y);
+      if (d > range || d < 1) continue;
+      const ang = angleTo(soldier.x, soldier.y, e.x, e.y);
+      if (Math.abs(angleDiff(ang, soldier.facing)) > spread) continue;
+      if (d < bestD) {
+        bestD = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  function fireSoldier(soldier, target, damage, accuracySpread) {
+    const baseAng = angleTo(soldier.x, soldier.y, target.x, target.y);
+    const ang = baseAng + (Math.random() - 0.5) * 2 * accuracySpread;
+    const muzzle = soldier.r + 4;
+    const isHeadshot = Math.random() < currentHeadshotChance();
+    state.projectiles.push({
+      x: soldier.x + Math.cos(ang) * muzzle,
+      y: soldier.y + Math.sin(ang) * muzzle,
+      vx: Math.cos(ang) * BASE_WEAPON.projectileSpeed,
+      vy: Math.sin(ang) * BASE_WEAPON.projectileSpeed,
+      damage: isHeadshot ? damage * 2 : damage,
+      headshot: isHeadshot,
+      life: 0.85,
+      r: isHeadshot ? 3.2 : 2.5,
+      color: isHeadshot ? "#ff6b6b" : "#e8c87a",
+      hitIds: new Set(),
+    });
+  }
+
+  // AABB: square side = circle radius → half-extent = radius/2
+  function collHalf(e) { return e.radius * 0.5; }
+
+  function resolveEnemyCollisions() {
+    const list = state.enemies;
+    const n = list.length;
+    if (n < 2) return;
+
+    const CS = 14;
+    function bkey(cx, cy) { return cx + "," + cy; }
+
+    for (let iter = 0; iter < 2; iter++) {
+      const buckets = new Map();
+      for (let i = 0; i < n; i++) {
+        const e = list[i];
+        if (e.dead) continue;
+        const k = bkey((e.x / CS) | 0, (e.y / CS) | 0);
+        let arr = buckets.get(k);
+        if (!arr) { arr = []; buckets.set(k, arr); }
+        arr.push(i);
+      }
+
+      for (let i = 0; i < n; i++) {
+        const a = list[i];
+        if (a.dead) continue;
+        const ah = collHalf(a);
+        const acx = (a.x / CS) | 0;
+        const acy = (a.y / CS) | 0;
+
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let ox = -1; ox <= 1; ox++) {
+            const arr = buckets.get(bkey(acx + ox, acy + oy));
+            if (!arr) continue;
+            for (let t = 0; t < arr.length; t++) {
+              const j = arr[t];
+              if (j <= i) continue;
+              const b = list[j];
+              if (b.dead) continue;
+              const bh = collHalf(b);
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const overlapX = ah + bh - Math.abs(dx);
+              const overlapY = ah + bh - Math.abs(dy);
+              if (overlapX <= 0 || overlapY <= 0) continue;
+              if (overlapX < overlapY) {
+                const push = overlapX * 0.5;
+                const s = dx < 0 ? -1 : 1;
+                a.x -= push * s;
+                b.x += push * s;
+              } else {
+                const push = overlapY * 0.5;
+                const s = dy < 0 ? -1 : 1;
+                a.y -= push * s;
+                b.y += push * s;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (const e of list) {
+      if (e.dead) continue;
+      e.x = clamp(e.x, e.radius, WORLD_W - e.radius);
+      e.y = clamp(e.y, 8, WORLD_H - 8);
+    }
+  }
+
+  function update(dt) {
+    if (state.gameOver || state.won) return;
+
+    const range = currentRange();
+    const fireRate = currentFireRate();
+    const damage = currentDamage();
+    const vision = BASE_WEAPON.vision;
+    const accuracySpread = currentAccuracySpread();
+    const pierceChance = currentPierceChance();
+
+    // Soldiers pace + shoot
+    for (const s of state.soldiers) {
+      s.paceTimer -= dt;
+      if (s.paceTimer <= 0) {
+        s.paceDir *= -1;
+        s.paceTimer = 0.6 + Math.random() * 1.4;
+        s.paceSpeed = 24 + Math.random() * 28;
+      }
+      s.x += s.paceDir * s.paceSpeed * dt;
+      // Soft bounce at edges / keep in trench
+      if (s.x < 36) { s.x = 36; s.paceDir = 1; }
+      if (s.x > WORLD_W - 36) { s.x = WORLD_W - 36; s.paceDir = -1; }
+      s.y += Math.sin(performance.now() * 0.003 + s.x * 0.02) * 8 * dt;
+      s.y = clamp(s.y, TRENCH_TOP + 10, TRENCH_BOTTOM - 10);
+
+      const target = findTarget(s, range, vision);
+      const desiredFacing = target
+        ? angleTo(s.x, s.y, target.x, target.y)
+        : -Math.PI / 2;
+      // Smooth turn toward target (or back to forward when idle)
+      let turn = angleDiff(desiredFacing, s.facing);
+      const turnSpeed = 5.5;
+      const maxTurn = turnSpeed * dt;
+      if (Math.abs(turn) <= maxTurn) s.facing = desiredFacing;
+      else s.facing += Math.sign(turn) * maxTurn;
+
+      s.cooldown -= dt;
+      if (s.cooldown <= 0 && target) {
+        // Shoot once roughly aimed at the target
+        if (Math.abs(angleDiff(desiredFacing, s.facing)) < vision * 0.85) {
+          fireSoldier(s, target, damage, accuracySpread);
+          s.cooldown = 1 / fireRate;
+        }
+      }
+    }
+
+    // Spawning
+    if (state.waveActive && state.spawnQueue.length) {
+      state.spawnTimer -= dt;
+      let guard = 0;
+      while (state.spawnTimer <= 0 && state.spawnQueue.length && guard < 20) {
+        const next = state.spawnQueue.shift();
+        spawnEnemy(next.type);
+        state.spawnTimer += next.interval * (0.75 + Math.random() * 0.4);
+        guard++;
+      }
+    }
+
+    // Enemies move down
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      e.y += e.speed * dt;
+      e.x += e.drift * dt;
+      if (e.x < e.radius || e.x > WORLD_W - e.radius) e.drift *= -1;
+      if (e.y >= BREACH_Y) enemyBreached(e);
+    }
+    resolveEnemyCollisions();
+
+    // Projectiles (pierce = chance to keep going after a hit)
+    for (const p of state.projectiles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0 || p.y < 0 || p.x < 0 || p.x > WORLD_W) {
+        p.dead = true;
+        continue;
+      }
+      for (const e of state.enemies) {
+        if (e.dead || p.hitIds.has(e.id)) continue;
+        if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.radius) {
+          p.hitIds.add(e.id);
+          e.hp -= p.damage;
+          if (e.hp <= 0) killEnemy(e);
+          if (Math.random() >= pierceChance) {
+            p.dead = true;
+            break;
+          }
+          // pierced — continue a bit further, mark as red
+          p.color = "#ff4a4a";
+          p.r = Math.max(p.r, 3);
+          p.life = Math.max(p.life, 0.15);
+        }
+      }
+    }
+    state.projectiles = state.projectiles.filter((p) => !p.dead);
+    state.enemies = state.enemies.filter((e) => !e.dead);
+
+    if (state.waveActive && !state.spawnQueue.length && !state.enemies.length) {
+      state.waveActive = false;
+      if (state.waveIndex >= WAVES.length) {
+        state.won = true;
+        setStatus("Výhra! Linie držela.", "good");
+      } else {
+        setStatus("Vlna odražena — vylepši obranu a spusť další.", "good");
+      }
+      updateUI();
+    }
+  }
+
+  function layout() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const pad = 24;
+    const scale = Math.min(
+      (rect.width - pad * 2) / WORLD_W,
+      (rect.height - pad * 2) / WORLD_H
+    );
+    view.scale = scale;
+    view.ox = (rect.width - WORLD_W * scale) / 2;
+    view.oy = (rect.height - WORLD_H * scale) / 2;
+  }
+
+  function toScreen(x, y) {
+    return { x: view.ox + x * view.scale, y: view.oy + y * view.scale };
+  }
+
+  function toWorld(sx, sy) {
+    return {
+      x: (sx - view.ox) / view.scale,
+      y: (sy - view.oy) / view.scale,
+    };
+  }
+
+  function drawCone(s, range, halfAngle, fill, stroke, highlight) {
+    const sc = toScreen(s.x, s.y);
+    const r = range * view.scale;
+    const a0 = s.facing - halfAngle;
+    const a1 = s.facing + halfAngle;
+    ctx.beginPath();
+    ctx.moveTo(sc.x, sc.y);
+    ctx.arc(sc.x, sc.y, r, a0, a1);
+    ctx.closePath();
+    ctx.fillStyle = highlight ? fill.hi : fill.lo;
+    ctx.fill();
+    ctx.strokeStyle = highlight ? stroke.hi : stroke.lo;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function draw() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    const bg = ctx.createRadialGradient(
+      rect.width * 0.5, rect.height * 0.4, 40,
+      rect.width * 0.5, rect.height * 0.5, Math.max(rect.width, rect.height) * 0.7
+    );
+    bg.addColorStop(0, "#1a2233");
+    bg.addColorStop(1, "#0e121a");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    const origin = toScreen(0, 0);
+    ctx.fillStyle = "#1c2433";
+    ctx.fillRect(origin.x, origin.y, WORLD_W * view.scale, WORLD_H * view.scale);
+    ctx.strokeStyle = "#2e3a50";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(origin.x, origin.y, WORLD_W * view.scale, WORLD_H * view.scale);
+
+    // Spawn zone
+    const spawnA = toScreen(0, 0);
+    const spawnB = toScreen(WORLD_W, 56);
+    ctx.fillStyle = "rgba(107, 61, 61, 0.28)";
+    ctx.fillRect(spawnA.x, spawnA.y, spawnB.x - spawnA.x, spawnB.y - spawnA.y);
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.font = "bold " + Math.round(11 * view.scale) + "px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("SPAWN", (spawnA.x + spawnB.x) / 2, spawnA.y + 22 * view.scale);
+
+    // Trench zone
+    const tA = toScreen(0, TRENCH_TOP);
+    const tB = toScreen(WORLD_W, TRENCH_BOTTOM);
+    ctx.fillStyle = "rgba(61, 107, 79, 0.22)";
+    ctx.fillRect(tA.x, tA.y, tB.x - tA.x, tB.y - tA.y);
+    ctx.strokeStyle = "rgba(92, 184, 122, 0.35)";
+    ctx.setLineDash([8, 6]);
+    ctx.strokeRect(tA.x + 1, tA.y + 1, tB.x - tA.x - 2, tB.y - tA.y - 2);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font = Math.round(10 * view.scale) + "px sans-serif";
+    ctx.fillText("TRENCH", (tA.x + tB.x) / 2, tA.y + 14 * view.scale);
+
+    // Breach line
+    const br = toScreen(0, BREACH_Y);
+    ctx.strokeStyle = "rgba(212, 91, 91, 0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(br.x, br.y);
+    ctx.lineTo(br.x + WORLD_W * view.scale, br.y);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(212, 91, 91, 0.7)";
+    ctx.font = "bold " + Math.round(10 * view.scale) + "px sans-serif";
+    ctx.fillText("BREACH", br.x + WORLD_W * view.scale / 2, br.y + 14 * view.scale);
+
+    const range = currentRange();
+    const vision = BASE_WEAPON.vision;
+    const accuracySpread = currentAccuracySpread();
+
+    // Vision cone (blue) + accuracy cone (light green)
+    for (const s of state.soldiers) {
+      const hi = hoverSoldier === s;
+      drawCone(
+        s, range, vision,
+        { lo: "rgba(91, 159, 212, 0.05)", hi: "rgba(91, 159, 212, 0.12)" },
+        { lo: "rgba(91, 159, 212, 0.18)", hi: "rgba(91, 159, 212, 0.4)" },
+        hi
+      );
+      drawCone(
+        s, range, accuracySpread,
+        { lo: "rgba(140, 220, 140, 0.08)", hi: "rgba(140, 220, 140, 0.18)" },
+        { lo: "rgba(140, 220, 140, 0.28)", hi: "rgba(140, 220, 140, 0.55)" },
+        hi
+      );
+    }
+
+    // Enemies
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const sc = toScreen(e.x, e.y);
+      const rad = e.radius * view.scale;
+      ctx.beginPath();
+      ctx.arc(sc.x, sc.y, rad, 0, Math.PI * 2);
+      ctx.fillStyle = e.color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.stroke();
+
+      const bw = Math.max(8, rad * 2.2);
+      const ratio = Math.max(0, e.hp / e.maxHp);
+      ctx.fillStyle = "#222";
+      ctx.fillRect(sc.x - bw / 2, sc.y - rad - 6, bw, 2.5);
+      ctx.fillStyle = ratio > 0.4 ? "#5cb87a" : "#d45b5b";
+      ctx.fillRect(sc.x - bw / 2, sc.y - rad - 6, bw * ratio, 2.5);
+    }
+
+    // Projectiles
+    for (const p of state.projectiles) {
+      const sc = toScreen(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(sc.x, sc.y, p.r * view.scale, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    }
+
+    // Soldiers
+    for (const s of state.soldiers) {
+      const sc = toScreen(s.x, s.y);
+      const size = s.r * view.scale;
+
+      ctx.beginPath();
+      ctx.arc(sc.x, sc.y, size + 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(sc.x, sc.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = hoverSoldier === s ? "#6ab88a" : "#4a8f62";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Facing notch (up)
+      ctx.save();
+      ctx.translate(sc.x, sc.y);
+      ctx.rotate(s.facing);
+      ctx.fillStyle = "#c4a35a";
+      ctx.fillRect(size - 3, -2.5 * view.scale, 10 * view.scale, 5 * view.scale);
+      ctx.restore();
+    }
+
+    if (state.gameOver || state.won) {
+      ctx.fillStyle = "rgba(10, 12, 18, 0.55)";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      ctx.fillStyle = state.won ? "#5cb87a" : "#d45b5b";
+      ctx.font = "bold 28px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(state.won ? "VÝHRA" : "PROHRA", rect.width / 2, rect.height / 2);
+    }
+  }
+
+  function canvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    const p = canvasPos(e);
+    const w = toWorld(p.x, p.y);
+    hoverSoldier = null;
+    for (const s of state.soldiers) {
+      if (Math.hypot(w.x - s.x, w.y - s.y) < s.r + 8) {
+        hoverSoldier = s;
+        break;
+      }
+    }
+  });
+  canvas.addEventListener("mouseleave", () => { hoverSoldier = null; });
+
+  el.upgRange.addEventListener("click", () => buyUpgrade("range"));
+  el.upgRate.addEventListener("click", () => buyUpgrade("rate"));
+  el.upgDmg.addEventListener("click", () => buyUpgrade("dmg"));
+  el.upgPierce.addEventListener("click", () => buyUpgrade("pierce"));
+  el.upgHeadshot.addEventListener("click", () => buyUpgrade("headshot"));
+  el.upgAccuracy.addEventListener("click", () => buyUpgrade("accuracy"));
+  el.btnBuy.addEventListener("click", buySoldier);
+  el.btnWave.addEventListener("click", startWave);
+  document.getElementById("btn-credits").addEventListener("click", () => {
+    state.credits += 1000;
+    updateUI();
+  });
+  el.btnRestart.addEventListener("click", () => {
+    resetGame();
+    layout();
+    setStatus("Připraven — ještě užší pole, 2× horda");
+  });
+  window.addEventListener("resize", layout);
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  resetGame();
+  layout();
+  requestAnimationFrame(frame);
+})();
+  </script>
+</body>
+</html>

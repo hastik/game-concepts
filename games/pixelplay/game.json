@@ -1,0 +1,17 @@
+{
+  "slug": "pixelplay",
+  "title": "Hex Colony",
+  "description": "Hexová kolonie: stavba, zásoby a průzkum na hex mapě. Ve složce jsou i starší experimenty Pixels a Streets.",
+  "file": "hex-colony.html",
+  "tags": [
+    "hex",
+    "kolonie",
+    "strategie",
+    "pixel",
+    "experiment"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-25",
+  "controls": "LMB výběr/stavba, RMB zrušit, prostřední pan, RMB tažení zoom",
+  "thumbnail": "screenshot.png"
+}

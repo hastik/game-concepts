@@ -1,0 +1,16 @@
+{
+  "slug": "tower-defense",
+  "title": "Hold The Line",
+  "description": "Tower defense / line-hold: kup vojáky, vylepšuj dosah a poškození, spouštěj vlny. Ve složce i hex TD a starší towerdefence2–4.",
+  "file": "holdtheline3.html",
+  "tags": [
+    "tower-defense",
+    "vlny",
+    "strategie",
+    "experiment"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-20",
+  "controls": "UI nákup vojáků/upgradů, tlačítko Další vlna, myš na mapě",
+  "thumbnail": "screenshot.png"
+}

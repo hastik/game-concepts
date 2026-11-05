@@ -1,0 +1,16 @@
+{
+  "slug": "train",
+  "title": "Vlak",
+  "description": "CRT terminálový vlakový prototyp: jeď, sbírej náklad, restartuj scénu. Iterace vlak1–3 a vlak5.",
+  "file": "vlak5.html",
+  "tags": [
+    "vlak",
+    "crt",
+    "puzzle",
+    "experiment"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-20",
+  "controls": "Šipky/WASD pohyb, R restart",
+  "thumbnail": "screenshot.png"
+}

@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hex Tower Defense</title>
+  <style>
+    :root {
+      --bg: #1a1f2e;
+      --panel: #242b3d;
+      --border: #3a4560;
+      --text: #e8ecf4;
+      --muted: #9aa3b8;
+      --accent: #5b9fd4;
+      --good: #5cb87a;
+      --warn: #d4a05b;
+      --bad: #d45b5b;
+      --hex: #2d3548;
+      --hex-edge: #4a5570;
+      --start: #3d6b4f;
+      --goal: #6b3d3d;
+      --path: #354058;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      grid-template-rows: auto 1fr;
+      height: 100%;
+    }
+
+    #hud {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.65rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #hud .stat {
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    #hud .stat strong {
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    #hud .status {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    #hud .status.alert { color: var(--warn); }
+    #hud .status.bad { color: var(--bad); }
+    #hud .status.good { color: var(--good); }
+
+    #stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #12161f;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+    }
+
+    #sidebar h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #1e2535;
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: #283044;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn.active {
+      border-color: var(--accent);
+      background: #2a3a52;
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .btn .price { color: var(--warn); font-variant-numeric: tabular-nums; white-space:nowrap; }
+    .btn .meta { color: var(--muted); font-size: 0.75rem; }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .btn-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    #btn-wave {
+      background: #2a4a3a;
+      border-color: #3d6b4f;
+      font-weight: 600;
+      justify-content: center;
+      padding: 0.7rem;
+    }
+
+    #btn-wave:hover:not(:disabled) {
+      background: #355a46;
+    }
+
+    #btn-restart {
+      margin-top: auto;
+      justify-content: center;
+      border-color: var(--border);
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      #sidebar {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        max-height: 40vh;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-content: flex-start;
+      }
+      #sidebar .section { flex: 1 1 140px; }
+      #btn-restart { margin-top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header id="hud">
+    <div class="stat">Kredity <strong id="credits">100</strong></div>
+    <div class="stat">Životy <strong id="lives">20</strong></div>
+    <div class="stat">Vlna <strong id="wave">0</strong>/<span id="wave-max">10</span></div>
+    <div class="status" id="status">Připraven — postav věže a spusť vlnu</div>
+  </header>
+
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <aside id="sidebar">
+    <div class="section">
+      <h2>Věže</h2>
+      <button type="button" class="btn tower-btn active" data-tower="arrow">
+        <span class="btn-row"><span class="swatch" style="background:#c4a35a"></span>Šípová</span>
+        <span class="price">50</span>
+      </button>
+      <button type="button" class="btn tower-btn" data-tower="gun">
+        <span class="btn-row"><span class="swatch" style="background:#7a9e6a"></span>Kulometná</span>
+        <span class="price">65</span>
+      </button>
+      <button type="button" class="btn tower-btn" data-tower="laser">
+        <span class="btn-row"><span class="swatch" style="background:#6a8ec4"></span>Laserová</span>
+        <span class="price">90</span>
+      </button>
+      <button type="button" class="btn tower-btn" data-tower="bonus">
+        <span class="btn-row"><span class="swatch" style="background:#b06ac4"></span>Bonusová</span>
+        <span class="price">75</span>
+      </button>
+      <p class="hint">Bonusová: +20 % rychlosti střelby sousedním věžím.</p>
+    </div>
+
+    <div class="section">
+      <h2>Globální upgrady</h2>
+      <button type="button" class="btn" id="upg-power">
+        <span>Síla <span class="meta" id="upg-power-lvl">0/5</span></span>
+        <span class="price" id="upg-power-price">80</span>
+      </button>
+      <button type="button" class="btn" id="upg-eco">
+        <span>Ekonomika <span class="meta" id="upg-eco-lvl">0/5</span></span>
+        <span class="price" id="upg-eco-price">70</span>
+      </button>
+      <button type="button" class="btn" id="upg-fort">
+        <span>Opevnění <span class="meta" id="upg-fort-lvl">0/5</span></span>
+        <span class="price" id="upg-fort-price">60</span>
+      </button>
+      <p class="hint">Síla +15 % dmg · Ekonomika +20 % kreditů · Opevnění +2 životy</p>
+    </div>
+
+    <div class="section">
+      <h2>Vlna</h2>
+      <button type="button" class="btn" id="btn-wave">Další vlna</button>
+    </div>
+
+    <button type="button" class="btn" id="btn-restart">Restart</button>
+  </aside>
+
+  <script>
+(function () {
+  "use strict";
+
+  // ——— Hex math (axial, flat-top) ———
+  const HEX_DIRS = [
+    [+1, 0], [+1, -1], [0, -1],
+    [-1, 0], [-1, +1], [0, +1],
+  ];
+
+  function hexKey(q, r) { return q + "," + r; }
+  function parseKey(k) {
+    const [q, r] = k.split(",").map(Number);
+    return { q, r };
+  }
+  function hexNeighbors(q, r) {
+    return HEX_DIRS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+  }
+  function hexDistance(a, b) {
+    return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+  }
+  function hexToPixel(q, r, size) {
+    const x = size * (3 / 2 * q);
+    const y = size * (Math.sqrt(3) / 2 * q + Math.sqrt(3) * r);
+    return { x, y };
+  }
+  function pixelToHex(x, y, size) {
+    const q = (2 / 3 * x) / size;
+    const r = (-1 / 3 * x + Math.sqrt(3) / 3 * y) / size;
+    return hexRound(q, r);
+  }
+  function hexRound(q, r) {
+    let x = q, z = r, y = -q - r;
+    let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+    const xDiff = Math.abs(rx - x), yDiff = Math.abs(ry - y), zDiff = Math.abs(rz - z);
+    if (xDiff > yDiff && xDiff > zDiff) rx = -ry - rz;
+    else if (yDiff > zDiff) ry = -rx - rz;
+    else rz = -rx - ry;
+    return { q: rx, r: rz };
+  }
+  function hexCorners(cx, cy, size) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i);
+      pts.push({ x: cx + size * Math.cos(angle), y: cy + size * Math.sin(angle) });
+    }
+    return pts;
+  }
+
+  // ——— Config ———
+  // Rectangular map via odd-q offset → axial (flat-top)
+  const COLS = 12;
+  const ROWS = 10;
+
+  function offsetToAxial(col, row) {
+    const q = col;
+    const r = row - ((col - (col & 1)) >> 1);
+    return { q, r };
+  }
+
+  const START = offsetToAxial(0, 4);
+  const GOAL = offsetToAxial(COLS - 1, 4);
+
+  const TOWER_DEFS = {
+    arrow: {
+      name: "Šípová",
+      cost: 50,
+      damage: 18,
+      range: 2.6,
+      fireRate: 0.7,
+      color: "#c4a35a",
+      projectileSpeed: 320,
+      projectileColor: "#e8c87a",
+    },
+    gun: {
+      name: "Kulometná",
+      cost: 65,
+      damage: 7,
+      range: 2.0,
+      fireRate: 3.2,
+      color: "#7a9e6a",
+      projectileSpeed: 420,
+      projectileColor: "#b8d4a0",
+    },
+    laser: {
+      name: "Laserová",
+      cost: 90,
+      damage: 45,
+      range: 3.4,
+      fireRate: 0.45,
+      color: "#6a8ec4",
+      projectileSpeed: 0,
+      projectileColor: "#9ec0f0",
+      isLaser: true,
+    },
+    bonus: {
+      name: "Bonusová",
+      cost: 75,
+      damage: 0,
+      range: 0,
+      fireRate: 0,
+      color: "#b06ac4",
+      isBonus: true,
+    },
+  };
+
+  const ENEMY_TYPES = {
+    basic: { hp: 40, speed: 55, reward: 8, radius: 7, color: "#d47a5b" },
+    fast: { hp: 28, speed: 95, reward: 10, radius: 6, color: "#d4c05b" },
+    tank: { hp: 120, speed: 35, reward: 18, radius: 10, color: "#8a5bd4" },
+  };
+
+  // Wave definitions: array of { type, count, interval }
+  const WAVES = [
+    [{ type: "basic", count: 6, interval: 0.7 }],
+    [{ type: "basic", count: 8, interval: 0.55 }, { type: "fast", count: 3, interval: 0.5 }],
+    [{ type: "basic", count: 6, interval: 0.5 }, { type: "tank", count: 2, interval: 1.0 }],
+    [{ type: "fast", count: 10, interval: 0.4 }],
+    [{ type: "basic", count: 10, interval: 0.45 }, { type: "tank", count: 3, interval: 0.9 }],
+    [{ type: "fast", count: 8, interval: 0.35 }, { type: "tank", count: 4, interval: 0.8 }],
+    [{ type: "basic", count: 12, interval: 0.4 }, { type: "fast", count: 8, interval: 0.35 }, { type: "tank", count: 3, interval: 0.7 }],
+    [{ type: "tank", count: 8, interval: 0.65 }, { type: "fast", count: 10, interval: 0.3 }],
+    [{ type: "basic", count: 15, interval: 0.35 }, { type: "tank", count: 6, interval: 0.55 }],
+    [{ type: "fast", count: 12, interval: 0.28 }, { type: "tank", count: 10, interval: 0.5 }, { type: "basic", count: 10, interval: 0.3 }],
+  ];
+
+  const UPGRADE_MAX = 5;
+  const UPGRADE_BASE = { power: 80, eco: 70, fort: 60 };
+
+  // ——— Pathfinding ———
+  function aStar(grid, start, goal) {
+    const startKey = hexKey(start.q, start.r);
+    const goalKey = hexKey(goal.q, goal.r);
+    if (!grid.has(startKey) || !grid.has(goalKey)) return null;
+    if (grid.get(startKey).blocked || grid.get(goalKey).blocked) return null;
+
+    const open = new Set([startKey]);
+    const came = new Map();
+    const gScore = new Map([[startKey, 0]]);
+    const fScore = new Map([[startKey, hexDistance(start, goal)]]);
+
+    while (open.size) {
+      let current = null, bestF = Infinity;
+      for (const k of open) {
+        const f = fScore.get(k) ?? Infinity;
+        if (f < bestF) { bestF = f; current = k; }
+      }
+      if (current === goalKey) {
+        const path = [parseKey(current)];
+        while (came.has(current)) {
+          current = came.get(current);
+          path.push(parseKey(current));
+        }
+        path.reverse();
+        return path;
+      }
+      open.delete(current);
+      const cur = parseKey(current);
+      for (const n of hexNeighbors(cur.q, cur.r)) {
+        const nk = hexKey(n.q, n.r);
+        if (!grid.has(nk) || grid.get(nk).blocked) continue;
+        const tentative = (gScore.get(current) ?? Infinity) + 1;
+        if (tentative < (gScore.get(nk) ?? Infinity)) {
+          came.set(nk, current);
+          gScore.set(nk, tentative);
+          fScore.set(nk, tentative + hexDistance(n, goal));
+          open.add(nk);
+        }
+      }
+    }
+    return null;
+  }
+
+  // ——— Game state ———
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const el = {
+    credits: document.getElementById("credits"),
+    lives: document.getElementById("lives"),
+    wave: document.getElementById("wave"),
+    waveMax: document.getElementById("wave-max"),
+    status: document.getElementById("status"),
+    btnWave: document.getElementById("btn-wave"),
+    btnRestart: document.getElementById("btn-restart"),
+    upgPower: document.getElementById("upg-power"),
+    upgEco: document.getElementById("upg-eco"),
+    upgFort: document.getElementById("upg-fort"),
+    upgPowerLvl: document.getElementById("upg-power-lvl"),
+    upgEcoLvl: document.getElementById("upg-eco-lvl"),
+    upgFortLvl: document.getElementById("upg-fort-lvl"),
+    upgPowerPrice: document.getElementById("upg-power-price"),
+    upgEcoPrice: document.getElementById("upg-eco-price"),
+    upgFortPrice: document.getElementById("upg-fort-price"),
+  };
+
+  el.waveMax.textContent = String(WAVES.length);
+
+  let state;
+
+  function createGrid() {
+    const grid = new Map();
+    for (let col = 0; col < COLS; col++) {
+      for (let row = 0; row < ROWS; row++) {
+        const { q, r } = offsetToAxial(col, row);
+        grid.set(hexKey(q, r), { q, r, col, row, blocked: false, tower: null });
+      }
+    }
+    return grid;
+  }
+
+  function resetGame() {
+    state = {
+      grid: createGrid(),
+      towers: [],
+      enemies: [],
+      projectiles: [],
+      lasers: [],
+      credits: 120,
+      lives: 20,
+      waveIndex: 0,
+      waveActive: false,
+      spawnQueue: [],
+      spawnTimer: 0,
+      selectedTower: "arrow",
+      hoverHex: null,
+      upgrades: { power: 0, eco: 0, fort: 0 },
+      gameOver: false,
+      won: false,
+      pathPreview: null,
+      offsetX: 0,
+      offsetY: 0,
+      hexSize: 28,
+    };
+    state.pathPreview = aStar(state.grid, START, GOAL);
+    updateUI();
+  }
+
+  function upgradeCost(kind) {
+    const lvl = state.upgrades[kind];
+    return Math.floor(UPGRADE_BASE[kind] * Math.pow(1.45, lvl));
+  }
+
+  function damageMultiplier() {
+    return 1 + 0.15 * state.upgrades.power;
+  }
+
+  function creditMultiplier() {
+    return 1 + 0.2 * state.upgrades.eco;
+  }
+
+  function fireRateBonusAt(q, r) {
+    let bonus = 0;
+    for (const n of hexNeighbors(q, r)) {
+      const cell = state.grid.get(hexKey(n.q, n.r));
+      if (cell && cell.tower && cell.tower.type === "bonus") bonus += 0.2;
+    }
+    return bonus;
+  }
+
+  function canAfford(cost) {
+    return state.credits >= cost;
+  }
+
+  function tryBuild(q, r) {
+    if (state.gameOver || state.won) return;
+    const key = hexKey(q, r);
+    const cell = state.grid.get(key);
+    if (!cell || cell.blocked) return;
+    if ((q === START.q && r === START.r) || (q === GOAL.q && r === GOAL.r)) return;
+
+    const def = TOWER_DEFS[state.selectedTower];
+    if (!canAfford(def.cost)) return;
+
+    cell.blocked = true;
+    const path = aStar(state.grid, START, GOAL);
+    if (!path) {
+      cell.blocked = false;
+      setStatus("Nelze zablokovat cestu!", "alert");
+      return;
+    }
+
+    state.credits -= def.cost;
+    const tower = {
+      q, r,
+      type: state.selectedTower,
+      cooldown: 0,
+      def,
+    };
+    cell.tower = tower;
+    state.towers.push(tower);
+    state.pathPreview = path;
+    repathAllEnemies();
+    updateUI();
+  }
+
+  function repathAllEnemies() {
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const from = e.path[e.pathIndex] || e.path[e.path.length - 1];
+      if (!from) continue;
+      const newPath = aStar(state.grid, from, GOAL);
+      if (newPath && newPath.length) {
+        e.path = newPath;
+        e.pathIndex = 0;
+        e.t = 0;
+        syncEnemyPos(e);
+      }
+    }
+  }
+
+  function syncEnemyPos(e) {
+    if (e.pathIndex >= e.path.length - 1) {
+      const last = e.path[e.path.length - 1];
+      const p = hexToPixel(last.q, last.r, state.hexSize);
+      e.x = p.x; e.y = p.y;
+      return;
+    }
+    const a = e.path[e.pathIndex];
+    const b = e.path[e.pathIndex + 1];
+    const pa = hexToPixel(a.q, a.r, state.hexSize);
+    const pb = hexToPixel(b.q, b.r, state.hexSize);
+    e.x = pa.x + (pb.x - pa.x) * e.t;
+    e.y = pa.y + (pb.y - pa.y) * e.t;
+  }
+
+  function startWave() {
+    if (state.gameOver || state.won || state.waveActive) return;
+    if (state.waveIndex >= WAVES.length) return;
+
+    const groups = WAVES[state.waveIndex];
+    state.spawnQueue = [];
+    for (const g of groups) {
+      for (let i = 0; i < g.count; i++) {
+        state.spawnQueue.push({ type: g.type, interval: g.interval });
+      }
+    }
+    state.waveActive = true;
+    state.spawnTimer = 0.15;
+    state.waveIndex += 1;
+    setStatus("Vlna " + state.waveIndex + " probíhá…", "alert");
+    updateUI();
+  }
+
+  function spawnEnemy(type) {
+    const def = ENEMY_TYPES[type];
+    const path = aStar(state.grid, START, GOAL);
+    if (!path || path.length < 2) return;
+    const p0 = hexToPixel(path[0].q, path[0].r, state.hexSize);
+    state.enemies.push({
+      type,
+      hp: def.hp,
+      maxHp: def.hp,
+      speed: def.speed,
+      reward: def.reward,
+      radius: def.radius,
+      color: def.color,
+      path,
+      pathIndex: 0,
+      t: 0,
+      x: p0.x,
+      y: p0.y,
+      dead: false,
+    });
+  }
+
+  function killEnemy(e) {
+    if (e.dead) return;
+    e.dead = true;
+    const gained = Math.round(e.reward * creditMultiplier());
+    state.credits += gained;
+    updateUI();
+  }
+
+  function enemyReachedGoal(e) {
+    e.dead = true;
+    state.lives -= 1;
+    if (state.lives <= 0) {
+      state.lives = 0;
+      state.gameOver = true;
+      state.waveActive = false;
+      setStatus("Prohra — nepřátelé prošli!", "bad");
+    }
+    updateUI();
+  }
+
+  function findTarget(tower) {
+    if (tower.def.isBonus) return null;
+    let best = null, bestDist = Infinity;
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const tp = hexToPixel(tower.q, tower.r, state.hexSize);
+      const dx = e.x - tp.x, dy = e.y - tp.y;
+      const distPx = Math.hypot(dx, dy);
+      const distHex = distPx / (state.hexSize * Math.sqrt(3));
+      if (distHex <= tower.def.range && distHex < bestDist) {
+        bestDist = distHex;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  function fireTower(tower, target, dt) {
+    const dmg = tower.def.damage * damageMultiplier();
+    if (tower.def.isLaser) {
+      target.hp -= dmg;
+      state.lasers.push({
+        x0: hexToPixel(tower.q, tower.r, state.hexSize).x,
+        y0: hexToPixel(tower.q, tower.r, state.hexSize).y,
+        x1: target.x,
+        y1: target.y,
+        life: 0.12,
+        color: tower.def.projectileColor,
+      });
+      if (target.hp <= 0) killEnemy(target);
+    } else {
+      const origin = hexToPixel(tower.q, tower.r, state.hexSize);
+      state.projectiles.push({
+        x: origin.x,
+        y: origin.y,
+        target: target,
+        speed: tower.def.projectileSpeed,
+        damage: dmg,
+        color: tower.def.projectileColor,
+        radius: tower.type === "gun" ? 2.5 : 3.5,
+      });
+    }
+  }
+
+  function update(dt) {
+    if (state.gameOver || state.won) return;
+
+    // Spawning
+    if (state.waveActive && state.spawnQueue.length) {
+      state.spawnTimer -= dt;
+      if (state.spawnTimer <= 0) {
+        const next = state.spawnQueue.shift();
+        spawnEnemy(next.type);
+        state.spawnTimer = next.interval;
+      }
+    }
+
+    // Enemies move
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      if (e.pathIndex >= e.path.length - 1) {
+        enemyReachedGoal(e);
+        continue;
+      }
+      const a = e.path[e.pathIndex];
+      const b = e.path[e.pathIndex + 1];
+      const pa = hexToPixel(a.q, a.r, state.hexSize);
+      const pb = hexToPixel(b.q, b.r, state.hexSize);
+      const segLen = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+      e.t += (e.speed * dt) / segLen;
+      while (e.t >= 1 && e.pathIndex < e.path.length - 1) {
+        e.t -= 1;
+        e.pathIndex += 1;
+        if (e.pathIndex >= e.path.length - 1) {
+          e.t = 0;
+          break;
+        }
+        const a2 = e.path[e.pathIndex];
+        const b2 = e.path[e.pathIndex + 1];
+        const pa2 = hexToPixel(a2.q, a2.r, state.hexSize);
+        const pb2 = hexToPixel(b2.q, b2.r, state.hexSize);
+        const seg2 = Math.hypot(pb2.x - pa2.x, pb2.y - pa2.y) || 1;
+        e.t = (e.t * segLen) / seg2;
+      }
+      syncEnemyPos(e);
+      if (e.pathIndex >= e.path.length - 1) {
+        enemyReachedGoal(e);
+      }
+    }
+
+    // Towers
+    for (const tower of state.towers) {
+      if (tower.def.isBonus) continue;
+      const rate = tower.def.fireRate * (1 + fireRateBonusAt(tower.q, tower.r));
+      tower.cooldown -= dt;
+      if (tower.cooldown <= 0) {
+        const target = findTarget(tower);
+        if (target) {
+          fireTower(tower, target, dt);
+          tower.cooldown = 1 / rate;
+        }
+      }
+    }
+
+    // Projectiles
+    for (const p of state.projectiles) {
+      if (!p.target || p.target.dead) {
+        p.dead = true;
+        continue;
+      }
+      const dx = p.target.x - p.x;
+      const dy = p.target.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      const step = p.speed * dt;
+      if (dist <= step || dist < p.target.radius) {
+        p.target.hp -= p.damage;
+        if (p.target.hp <= 0) killEnemy(p.target);
+        p.dead = true;
+      } else {
+        p.x += (dx / dist) * step;
+        p.y += (dy / dist) * step;
+      }
+    }
+    state.projectiles = state.projectiles.filter((p) => !p.dead);
+
+    // Lasers visual
+    for (const l of state.lasers) l.life -= dt;
+    state.lasers = state.lasers.filter((l) => l.life > 0);
+
+    // Cleanup dead enemies
+    state.enemies = state.enemies.filter((e) => !e.dead);
+
+    // Wave complete
+    if (state.waveActive && !state.spawnQueue.length && !state.enemies.length) {
+      state.waveActive = false;
+      if (state.waveIndex >= WAVES.length) {
+        state.won = true;
+        setStatus("Výhra! Všechny vlny odraženy.", "good");
+      } else {
+        setStatus("Vlna hotová — připrav se a spusť další.", "good");
+      }
+      updateUI();
+    }
+  }
+
+  // ——— Render ———
+  function layout() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const pad = 36;
+    const w = rect.width - pad * 2;
+    const h = rect.height - pad * 2;
+    const sizeByW = w / (COLS * 1.5 + 0.5);
+    const sizeByH = h / ((ROWS + 0.5) * Math.sqrt(3));
+    state.hexSize = Math.min(sizeByW, sizeByH, 34);
+
+    const gridW = state.hexSize * (COLS * 1.5 + 0.5);
+    const gridH = state.hexSize * ((ROWS + 0.5) * Math.sqrt(3));
+    state.offsetX = (rect.width - gridW) / 2 + state.hexSize;
+    state.offsetY = (rect.height - gridH) / 2 + state.hexSize * Math.sqrt(3) / 2;
+  }
+
+  function worldToScreen(x, y) {
+    return { x: x + state.offsetX, y: y + state.offsetY };
+  }
+
+  function screenToWorld(sx, sy) {
+    return { x: sx - state.offsetX, y: sy - state.offsetY };
+  }
+
+  function drawHex(cx, cy, size, fill, stroke) {
+    const pts = hexCorners(cx, cy, size);
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  function draw() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    // Background atmosphere
+    const g = ctx.createRadialGradient(
+      rect.width * 0.5, rect.height * 0.45, 20,
+      rect.width * 0.5, rect.height * 0.5, Math.max(rect.width, rect.height) * 0.7
+    );
+    g.addColorStop(0, "#1a2233");
+    g.addColorStop(1, "#0e121a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    // Path highlight
+    const pathSet = new Set();
+    if (state.pathPreview) {
+      for (const h of state.pathPreview) pathSet.add(hexKey(h.q, h.r));
+    }
+
+    // Hover / range preview
+    const hover = state.hoverHex;
+    const selectedDef = TOWER_DEFS[state.selectedTower];
+
+    for (const cell of state.grid.values()) {
+      const p = hexToPixel(cell.q, cell.r, state.hexSize);
+      const s = worldToScreen(p.x, p.y);
+      let fill = "var(--hex)";
+      // use actual colors
+      fill = "#2d3548";
+      if (pathSet.has(hexKey(cell.q, cell.r))) fill = "#354058";
+      if (cell.q === START.q && cell.r === START.r) fill = "#3d6b4f";
+      if (cell.q === GOAL.q && cell.r === GOAL.r) fill = "#6b3d3d";
+      if (hover && hover.q === cell.q && hover.r === cell.r && !cell.blocked) {
+        fill = "#3a4a68";
+      }
+      drawHex(s.x, s.y, state.hexSize - 1.5, fill, "#4a5570");
+    }
+
+    // Range ring for hover placement
+    if (hover && !state.grid.get(hexKey(hover.q, hover.r))?.blocked && selectedDef.range > 0) {
+      const p = hexToPixel(hover.q, hover.r, state.hexSize);
+      const s = worldToScreen(p.x, p.y);
+      const rangePx = selectedDef.range * state.hexSize * Math.sqrt(3);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, rangePx, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(91, 159, 212, 0.45)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(91, 159, 212, 0.08)";
+      ctx.fill();
+    }
+
+    // Bonus neighbor highlight when hovering bonus or looking at bonus towers
+    if (hover && state.selectedTower === "bonus") {
+      for (const n of hexNeighbors(hover.q, hover.r)) {
+        if (!state.grid.has(hexKey(n.q, n.r))) continue;
+        const p = hexToPixel(n.q, n.r, state.hexSize);
+        const s = worldToScreen(p.x, p.y);
+        drawHex(s.x, s.y, state.hexSize - 4, "rgba(176, 106, 196, 0.25)", "rgba(176, 106, 196, 0.6)");
+      }
+    }
+
+    // Towers
+    for (const tower of state.towers) {
+      const p = hexToPixel(tower.q, tower.r, state.hexSize);
+      const s = worldToScreen(p.x, p.y);
+      const size = state.hexSize * 0.45;
+
+      if (tower.def.isBonus) {
+        // highlight affected neighbors lightly
+        for (const n of hexNeighbors(tower.q, tower.r)) {
+          const cell = state.grid.get(hexKey(n.q, n.r));
+          if (cell && cell.tower && !cell.tower.def.isBonus) {
+            const np = hexToPixel(n.q, n.r, state.hexSize);
+            const ns = worldToScreen(np.x, np.y);
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(ns.x, ns.y);
+            ctx.strokeStyle = "rgba(176, 106, 196, 0.35)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      } else if (hover && hover.q === tower.q && hover.r === tower.r) {
+        const rangePx = tower.def.range * state.hexSize * Math.sqrt(3);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, rangePx, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(200, 200, 220, 0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      if (tower.def.isBonus) {
+        // diamond
+        ctx.moveTo(s.x, s.y - size);
+        ctx.lineTo(s.x + size * 0.7, s.y);
+        ctx.lineTo(s.x, s.y + size);
+        ctx.lineTo(s.x - size * 0.7, s.y);
+        ctx.closePath();
+      } else if (tower.type === "laser") {
+        ctx.rect(s.x - size * 0.55, s.y - size * 0.55, size * 1.1, size * 1.1);
+      } else if (tower.type === "gun") {
+        ctx.arc(s.x, s.y, size * 0.7, 0, Math.PI * 2);
+      } else {
+        // arrow triangle
+        ctx.moveTo(s.x, s.y - size);
+        ctx.lineTo(s.x + size * 0.85, s.y + size * 0.7);
+        ctx.lineTo(s.x - size * 0.85, s.y + size * 0.7);
+        ctx.closePath();
+      }
+      ctx.fillStyle = tower.def.color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // fire-rate bonus indicator
+      if (!tower.def.isBonus) {
+        const bonus = fireRateBonusAt(tower.q, tower.r);
+        if (bonus > 0) {
+          ctx.fillStyle = "#d4a0e8";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("+" + Math.round(bonus * 100) + "%", s.x, s.y + size + 12);
+        }
+      }
+    }
+
+    // Start / goal labels
+    for (const [hex, label] of [[START, "START"], [GOAL, "CÍL"]]) {
+      const p = hexToPixel(hex.q, hex.r, state.hexSize);
+      const s = worldToScreen(p.x, p.y);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, s.x, s.y);
+    }
+
+    // Enemies
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const s = worldToScreen(e.x, e.y);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, e.radius, 0, Math.PI * 2);
+      ctx.fillStyle = e.color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.stroke();
+
+      // HP bar
+      const bw = e.radius * 2.2;
+      const bh = 3;
+      const ratio = Math.max(0, e.hp / e.maxHp);
+      ctx.fillStyle = "#222";
+      ctx.fillRect(s.x - bw / 2, s.y - e.radius - 8, bw, bh);
+      ctx.fillStyle = ratio > 0.4 ? "#5cb87a" : "#d45b5b";
+      ctx.fillRect(s.x - bw / 2, s.y - e.radius - 8, bw * ratio, bh);
+    }
+
+    // Projectiles
+    for (const p of state.projectiles) {
+      const s = worldToScreen(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    }
+
+    // Lasers
+    for (const l of state.lasers) {
+      const a = worldToScreen(l.x0, l.y0);
+      const b = worldToScreen(l.x1, l.y1);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = l.color;
+      ctx.globalAlpha = Math.max(0, l.life / 0.12);
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    if (state.gameOver || state.won) {
+      ctx.fillStyle = "rgba(10, 12, 18, 0.55)";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      ctx.fillStyle = state.won ? "#5cb87a" : "#d45b5b";
+      ctx.font = "bold 28px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(state.won ? "VÝHRA" : "PROHRA", rect.width / 2, rect.height / 2);
+    }
+  }
+
+  // ——— UI ———
+  function setStatus(text, cls) {
+    el.status.textContent = text;
+    el.status.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function updateUI() {
+    el.credits.textContent = String(Math.floor(state.credits));
+    el.lives.textContent = String(state.lives);
+    el.wave.textContent = String(state.waveIndex);
+
+    el.btnWave.disabled = state.waveActive || state.gameOver || state.won || state.waveIndex >= WAVES.length;
+
+    const kinds = [
+      ["power", el.upgPower, el.upgPowerLvl, el.upgPowerPrice],
+      ["eco", el.upgEco, el.upgEcoLvl, el.upgEcoPrice],
+      ["fort", el.upgFort, el.upgFortLvl, el.upgFortPrice],
+    ];
+    for (const [kind, btn, lvlEl, priceEl] of kinds) {
+      const lvl = state.upgrades[kind];
+      lvlEl.textContent = lvl + "/" + UPGRADE_MAX;
+      if (lvl >= UPGRADE_MAX) {
+        priceEl.textContent = "MAX";
+        btn.disabled = true;
+      } else {
+        const cost = upgradeCost(kind);
+        priceEl.textContent = String(cost);
+        btn.disabled = state.gameOver || state.won || !canAfford(cost);
+      }
+    }
+
+    document.querySelectorAll(".tower-btn").forEach((btn) => {
+      const type = btn.dataset.tower;
+      const cost = TOWER_DEFS[type].cost;
+      btn.querySelector(".price").textContent = String(cost);
+      btn.classList.toggle("active", state.selectedTower === type);
+      btn.disabled = state.gameOver || state.won;
+    });
+  }
+
+  function buyUpgrade(kind) {
+    if (state.gameOver || state.won) return;
+    if (state.upgrades[kind] >= UPGRADE_MAX) return;
+    const cost = upgradeCost(kind);
+    if (!canAfford(cost)) return;
+    state.credits -= cost;
+    state.upgrades[kind] += 1;
+    if (kind === "fort") state.lives += 2;
+    updateUI();
+  }
+
+  // ——— Input ———
+  function canvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function hexAtEvent(e) {
+    const { x, y } = canvasPos(e);
+    const w = screenToWorld(x, y);
+    const h = pixelToHex(w.x, w.y, state.hexSize);
+    if (!state.grid.has(hexKey(h.q, h.r))) return null;
+    return h;
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    state.hoverHex = hexAtEvent(e);
+  });
+  canvas.addEventListener("mouseleave", () => {
+    state.hoverHex = null;
+  });
+  canvas.addEventListener("click", (e) => {
+    const h = hexAtEvent(e);
+    if (h) tryBuild(h.q, h.r);
+  });
+
+  document.querySelectorAll(".tower-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.selectedTower = btn.dataset.tower;
+      updateUI();
+    });
+  });
+
+  el.btnWave.addEventListener("click", startWave);
+  el.btnRestart.addEventListener("click", () => {
+    resetGame();
+    layout();
+    setStatus("Připraven — postav věže a spusť vlnu");
+  });
+  el.upgPower.addEventListener("click", () => buyUpgrade("power"));
+  el.upgEco.addEventListener("click", () => buyUpgrade("eco"));
+  el.upgFort.addEventListener("click", () => buyUpgrade("fort"));
+
+  window.addEventListener("resize", () => layout());
+
+  // ——— Loop ———
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  resetGame();
+  layout();
+  requestAnimationFrame(frame);
+})();
+  </script>
+</body>
+</html>

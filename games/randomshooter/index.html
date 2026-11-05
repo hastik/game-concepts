@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Random Shooter</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<canvas id="c"></canvas>
+
+  <div id="debug-bar">
+    <label class="dbg-toggle" id="debugRevealLabel" title="Zobrazit Cloakery a jejich dosah">
+      <input type="checkbox" id="debugReveal" />
+      <span>Debug</span>
+    </label>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <button type="button" id="debugCredits">+1000 kreditů</button>
+    <button type="button" id="debugMaxUpgrades">Max všechny upgrady</button>
+    <button type="button" id="debugLevel" title="Jeden kus od každého typu na mapě">DebugLevel</button>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-wave">
+      <span>Vlna</span>
+      <button type="button" id="debugWavePrev" title="Předchozí vlna">−</button>
+      <input type="number" id="debugWaveInput" min="1" step="1" value="1" />
+      <button type="button" id="debugWaveNext" title="Další vlna">+</button>
+      <button type="button" id="debugWaveGo">Spustit</button>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-size">
+      <span>Velikost cílů</span>
+      <button type="button" id="debugSizePrev" title="Zmenšit">−</button>
+      <span id="debugSizeValue">100%</span>
+      <button type="button" id="debugSizeNext" title="Zvětšit">+</button>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-zoom">
+      <span>Zoom</span>
+      <button type="button" id="debugZoomPrev" title="Oddálit (override do další vlny)">−</button>
+      <span id="debugZoomValue">100%</span>
+      <button type="button" id="debugZoomNext" title="Přiblížit (override do další vlny)">+</button>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-perf">
+      <span>FPS</span>
+      <span id="debugFpsValue">—</span>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-perf">
+      <span>Blur</span>
+      <button type="button" id="debugBlurPrev" title="Snížit shadowBlur násobič">−</button>
+      <span id="debugBlurValue">1.00</span>
+      <button type="button" id="debugBlurNext" title="Zvýšit shadowBlur násobič">+</button>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <div class="dbg-perf">
+      <span>AI ms</span>
+      <button type="button" id="debugAiMsPrev" title="Častější přepočet heal/gainer/turret">−</button>
+      <span id="debugAiMsValue">0</span>
+      <button type="button" id="debugAiMsNext" title="Řidší přepočet heal/gainer/turret">+</button>
+    </div>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <label class="dbg-toggle" id="debugBulletTimeLabel">
+      <input type="checkbox" id="debugBulletTime" />
+      <span>BulletTimeEffect</span>
+    </label>
+    <span class="dbg-sep" aria-hidden="true"></span>
+    <label class="dbg-toggle" id="debugMuteLabel">
+      <input type="checkbox" id="debugMute" />
+      <span>Mute</span>
+    </label>
+  </div>
+
+  <div id="hud">
+    <div id="top">
+      <div>
+        <div class="brand">Random Shooter</div>
+        <div class="wave-label">Vlna <span id="waveNum">1</span></div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row kills">
+          <svg class="stat-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2c-1.2 2.4-3.5 4-6.2 4.3.4 5.4 3.2 9.8 6.2 11.7 3-1.9 5.8-6.3 6.2-11.7C15.5 6 13.2 4.4 12 2zm-2.8 9.2l1.3 1.3 3.3-3.3.9.9-4.2 4.2-2.2-2.1.9-.9z"/>
+          </svg>
+          <span id="score">0</span>
+        </div>
+        <div class="stat-row creds">
+          <svg class="stat-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+          <span id="credits">0</span>
+        </div>
+      </div>
+    </div>
+    <div id="wave-banner"></div>
+  </div>
+  <div id="place-banner">Umísti strukturu · LMB potvrdit · Esc zrušit</div>
+
+  <div id="tools-menu">
+    <button type="button" id="tools-menu-btn">Tools</button>
+    <div class="game-menu-drop" role="menu">
+      <button type="button" id="btn-add-target" role="menuitem">Add target</button>
+      <button type="button" id="btn-add-amplifier" role="menuitem">Add Amplifier</button>
+    </div>
+  </div>
+
+  <button type="button" id="btn-laser-mode" title="Beam = řetězení skoků · Laser = paprsek skrz cíle na okraj arény">
+    LaserMode: Beam
+  </button>
+
+  <div id="game-menu">
+    <button type="button" id="game-menu-btn">Menu</button>
+    <div class="game-menu-drop" role="menu">
+      <button type="button" id="btn-save" role="menuitem">Save</button>
+      <button type="button" id="btn-load" role="menuitem">Load</button>
+    </div>
+  </div>
+
+  <div id="radar-panel" aria-hidden="true">
+    <div class="radar-title">Radar</div>
+    <canvas id="radar" width="148" height="148"></canvas>
+  </div>
+
+  <div id="msg-popup" aria-hidden="true">
+    <div class="msg-card" role="alertdialog" aria-labelledby="msg-popup-title">
+      <h2 id="msg-popup-title">Chyba</h2>
+      <p id="msg-popup-text"></p>
+      <button type="button" id="msg-popup-ok">OK</button>
+    </div>
+  </div>
+
+  <div id="loot-panel" aria-label="Sebrané kredity">
+    <div class="loot-title">Kredity</div>
+    <div class="loot-row" data-kind="normal">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Normal</span>
+      <span class="loot-count" id="loot-normal">0</span>
+    </div>
+    <div class="loot-row" data-kind="healer">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Healer</span>
+      <span class="loot-count" id="loot-healer">0</span>
+    </div>
+    <div class="loot-row" data-kind="tank">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Tank</span>
+      <span class="loot-count" id="loot-tank">0</span>
+    </div>
+    <div class="loot-row" data-kind="guidedTank">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">GuidedTank</span>
+      <span class="loot-count" id="loot-guidedTank">0</span>
+    </div>
+    <div class="loot-row" data-kind="gainer">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Gainer</span>
+      <span class="loot-count" id="loot-gainer">0</span>
+    </div>
+    <div class="loot-row" data-kind="mothership">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Mothership</span>
+      <span class="loot-count" id="loot-mothership">0</span>
+    </div>
+    <div class="loot-row" data-kind="rammer">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Rammer</span>
+      <span class="loot-count" id="loot-rammer">0</span>
+    </div>
+    <div class="loot-row" data-kind="sniper">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Sniper</span>
+      <span class="loot-count" id="loot-sniper">0</span>
+    </div>
+    <div class="loot-row" data-kind="splitter">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Splitter</span>
+      <span class="loot-count" id="loot-splitter">0</span>
+    </div>
+    <div class="loot-row" data-kind="cloaker">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">Cloaker</span>
+      <span class="loot-count" id="loot-cloaker">0</span>
+    </div>
+    <div class="loot-row" data-kind="guidedCloaker">
+      <span class="loot-dot" aria-hidden="true"></span>
+      <span class="loot-name">GuidedCloaker</span>
+      <span class="loot-count" id="loot-guidedCloaker">0</span>
+    </div>
+  </div>
+
+  <div id="resource-bars">
+    <div class="res-bar grav" id="grav-bar-wrap">
+      <div class="label">Gravitace</div>
+      <div class="track"><div class="fill" id="grav-bar-fill"></div></div>
+    </div>
+    <div class="res-bar laser" id="laser-bar-wrap">
+      <div class="label">Laser</div>
+      <div class="track"><div class="fill" id="laser-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="hint">
+    Myš = zaměřovač<br />
+    LMB = střelba<br />
+    RMB = gravitace<br />
+    MMB = laser<br />
+    Lze držet vše najednou<br />
+    LMB+RMB = rázová vlna (freeze)<br />
+    RMB+MMB = laserová vlna (dmg)<br />
+    Zaměřovač stíhá kurzor (upgrade rychlosti)<br />
+    Aréna roste s vlnou · zoom se přizpůsobí<br />
+    CTRL + kolečko = dočasný zoom override<br />
+    10 % drop kreditů · seber zaměřovačem<br />
+    Zelený + = léčitel (léčí zraněné paprskem)<br />
+    Zvuky: Tone.js sci-fi · Mute v debug
+  </div>
+
+  <button type="button" id="upgrades-btn">Upgrades</button>
+
+  <div id="shop-backdrop" aria-hidden="true">
+    <div id="shop" role="dialog" aria-labelledby="shop-title">
+      <div class="shop-head">
+        <h1 id="shop-title">Upgrades</h1>
+        <button type="button" id="shop-close">Zavřít</button>
+      </div>
+      <div class="shop-tabs" role="tablist">
+        <button type="button" class="shop-tab active" data-tab="results" role="tab">Results</button>
+        <button type="button" class="shop-tab" data-tab="upgrades" role="tab">Upgrades</button>
+        <button type="button" class="shop-tab soon" data-tab="techtree" role="tab" title="Připravuje se">Tech Tree</button>
+        <button type="button" class="shop-tab" data-tab="structures" role="tab">Structures</button>
+      </div>
+      <div class="shop-body">
+        <div class="shop-panel active" data-panel="results" role="tabpanel">
+          <div class="results-hero" id="results-hero">Vlna dokončena</div>
+          <div class="results-sub" id="results-sub">Shrnutí poslední vlny</div>
+          <div class="results-grid">
+            <div class="results-stat">
+              <div class="label">Čas vlny</div>
+              <div class="value cyan" id="results-duration">0.0 s</div>
+            </div>
+            <div class="results-stat">
+              <div class="label">Ø čas / nepřítel</div>
+              <div class="value cyan" id="results-avg">—</div>
+            </div>
+            <div class="results-stat">
+              <div class="label">Body</div>
+              <div class="value magenta" id="results-score">0</div>
+            </div>
+            <div class="results-stat">
+              <div class="label">Shop kredity</div>
+              <div class="value yellow" id="results-credits">0</div>
+            </div>
+          </div>
+          <div class="results-kills">
+            <h3>Sestřely podle typu</h3>
+            <div class="results-kill-row" data-kind="normal" style="color:#ff2bd6">
+              <span class="dot" style="background:#ff2bd6"></span>
+              <span class="name">Normal</span>
+              <span class="count" id="results-kill-normal">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="healer" style="color:#3dff8a">
+              <span class="dot" style="background:#3dff8a"></span>
+              <span class="name">Healer</span>
+              <span class="count" id="results-kill-healer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="tank" style="color:#ff9a3d">
+              <span class="dot" style="background:#ff9a3d"></span>
+              <span class="name">Tank</span>
+              <span class="count" id="results-kill-tank">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="guidedTank" style="color:#ff9a3d">
+              <span class="dot" style="background:#ff9a3d"></span>
+              <span class="name">GuidedTank</span>
+              <span class="count" id="results-kill-guidedTank">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="gainer" style="color:#4dc9ff">
+              <span class="dot" style="background:#4dc9ff"></span>
+              <span class="name">Gainer</span>
+              <span class="count" id="results-kill-gainer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="mothership" style="color:#c9a0ff">
+              <span class="dot" style="background:#c9a0ff"></span>
+              <span class="name">Mothership</span>
+              <span class="count" id="results-kill-mothership">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="rammer" style="color:#ff4d6d">
+              <span class="dot" style="background:#ff4d6d"></span>
+              <span class="name">Rammer</span>
+              <span class="count" id="results-kill-rammer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="sniper" style="color:#ffe566">
+              <span class="dot" style="background:#ffe566"></span>
+              <span class="name">Sniper</span>
+              <span class="count" id="results-kill-sniper">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="splitter" style="color:#ff8c42">
+              <span class="dot" style="background:#ff8c42"></span>
+              <span class="name">Splitter</span>
+              <span class="count" id="results-kill-splitter">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="cloaker" style="color:#b8c4ff">
+              <span class="dot" style="background:#b8c4ff"></span>
+              <span class="name">Cloaker</span>
+              <span class="count" id="results-kill-cloaker">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="guidedCloaker" style="color:#b8c4ff">
+              <span class="dot" style="background:#b8c4ff"></span>
+              <span class="name">GuidedCloaker</span>
+              <span class="count" id="results-kill-guidedCloaker">0</span>
+            </div>
+          </div>
+          <div class="results-loot">
+            <h3>Sesbírané barevné kredity</h3>
+            <div class="results-kill-row" data-kind="normal" style="color:#ff2bd6">
+              <span class="dot" style="background:#ff2bd6"></span>
+              <span class="name">Normal</span>
+              <span class="count" id="results-loot-normal">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="healer" style="color:#3dff8a">
+              <span class="dot" style="background:#3dff8a"></span>
+              <span class="name">Healer</span>
+              <span class="count" id="results-loot-healer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="tank" style="color:#ff9a3d">
+              <span class="dot" style="background:#ff9a3d"></span>
+              <span class="name">Tank</span>
+              <span class="count" id="results-loot-tank">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="guidedTank" style="color:#ff9a3d">
+              <span class="dot" style="background:#ff9a3d"></span>
+              <span class="name">GuidedTank</span>
+              <span class="count" id="results-loot-guidedTank">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="gainer" style="color:#4dc9ff">
+              <span class="dot" style="background:#4dc9ff"></span>
+              <span class="name">Gainer</span>
+              <span class="count" id="results-loot-gainer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="mothership" style="color:#c9a0ff">
+              <span class="dot" style="background:#c9a0ff"></span>
+              <span class="name">Mothership</span>
+              <span class="count" id="results-loot-mothership">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="rammer" style="color:#ff4d6d">
+              <span class="dot" style="background:#ff4d6d"></span>
+              <span class="name">Rammer</span>
+              <span class="count" id="results-loot-rammer">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="sniper" style="color:#ffe566">
+              <span class="dot" style="background:#ffe566"></span>
+              <span class="name">Sniper</span>
+              <span class="count" id="results-loot-sniper">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="splitter" style="color:#ff8c42">
+              <span class="dot" style="background:#ff8c42"></span>
+              <span class="name">Splitter</span>
+              <span class="count" id="results-loot-splitter">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="cloaker" style="color:#b8c4ff">
+              <span class="dot" style="background:#b8c4ff"></span>
+              <span class="name">Cloaker</span>
+              <span class="count" id="results-loot-cloaker">0</span>
+            </div>
+            <div class="results-kill-row" data-kind="guidedCloaker" style="color:#b8c4ff">
+              <span class="dot" style="background:#b8c4ff"></span>
+              <span class="name">GuidedCloaker</span>
+              <span class="count" id="results-loot-guidedCloaker">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="shop-panel" data-panel="upgrades" role="tabpanel">
+          <div class="shop-grid" id="shop-upgrades-grid"></div>
+        </div>
+        <div class="shop-panel" data-panel="techtree" role="tabpanel">
+          <div class="shop-placeholder">
+            <strong>Tech Tree</strong>
+            Strom technologií — připravuje se.
+          </div>
+        </div>
+        <div class="shop-panel" data-panel="structures" role="tabpanel">
+          <div class="struct-grid" id="shop-structures-grid"></div>
+          <p class="struct-hint">Klikni na strukturu → umísti na mapě (duch u kurzoru). Esc = zrušit a vrátit kredity.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="card">
+      <h1>Random Shooter</h1>
+      <p>
+        Neonový protokol aktivní. Zaměř, střílej, přitahuj gravitací a vypaluj laser.
+        Pozor na zelené léčitele (+) — opravují zraněné nepřátele léčebným paprskem.
+      </p>
+      <label class="menu-toggle on" id="waveUpgradesLabel">
+        <input type="checkbox" id="waveUpgradesToggle" checked />
+        <span>WaveUpgrades</span>
+      </label>
+      <button type="button" id="startBtn">Inicializovat</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+  <script src="js/config/arena.js"></script>
+  <script src="js/config/upgrades.js"></script>
+  <script src="js/config/structures.js"></script>
+  <script src="js/config/enemies.js"></script>
+  <script src="js/config/waves.js"></script>
+  <script src="js/config/performance.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/perf.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/waves.js"></script>
+  <script src="js/structures.js"></script>
+  <script src="js/tools.js"></script>
+  <script src="js/loot.js"></script>
+  <script src="js/shop.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/update.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>

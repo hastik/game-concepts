@@ -1,0 +1,17 @@
+{
+  "slug": "sensible-handball",
+  "title": "Sensible Handball",
+  "description": "Top-down házená ve stylu Sensible Soccer: běh, dribling, přihrávky na blízko/daleko, střelba a jednoduchá AI. Editor formací a testovací scény.",
+  "file": "index.html",
+  "tags": [
+    "sport",
+    "handball",
+    "2d",
+    "es-modules",
+    "prototyp"
+  ],
+  "status": "prototyp",
+  "created": "2026-10-13",
+  "controls": "Šipky pohyb, Shift sprint, S blízká přihrávka, A vzdálená, D střela/tackle, R restart",
+  "thumbnail": "screenshot.png"
+}

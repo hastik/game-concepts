@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biomes</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.6rem 1rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input[type="number"] {
+      width: 4.5rem;
+      padding: 0.25rem 0.4rem;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+      font-size: 0.875rem;
+    }
+
+    #toolbar input#seed {
+      width: 7rem;
+    }
+
+    #toolbar input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #8af;
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #zoomHud {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.75rem;
+      z-index: 1;
+      pointer-events: none;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+    }
+
+    #legend {
+      position: absolute;
+      left: 0.6rem;
+      bottom: 0.6rem;
+      z-index: 1;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 0.2rem 0.75rem;
+      padding: 0.45rem 0.6rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    #legend span {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    #legend i {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <label>
+      Seed
+      <input id="seed" type="number" value="42" />
+    </label>
+    <label>
+      Velikost (px)
+      <input id="size" type="number" min="1" value="8" />
+    </label>
+    <label>
+      Dimenze
+      <input id="dimension" type="number" min="2" value="8" />
+    </label>
+    <label>
+      <input id="smooth" type="checkbox" checked />
+      Plynulý přechod
+    </label>
+  </header>
+  <div id="stage">
+    <div id="zoomHud">1.00×</div>
+    <div id="legend"></div>
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const MAX_DEPTH = 8;
+    const MIN_ZOOM = 1;
+    const SMOOTH_FADE_START = 0.5;
+
+    const OCEAN = 0;
+    const COAST = 1;
+    const PLAINS = 2;
+    const FOREST = 3;
+    const JUNGLE = 4;
+    const DESERT = 5;
+    const MOUNTAIN = 6;
+    const SNOW = 7;
+
+    const BIOMES = [
+      { id: OCEAN, name: "Ocean", color: "#1a3a6e" },
+      { id: COAST, name: "Coast", color: "#c2b280" },
+      { id: PLAINS, name: "Plains", color: "#7cb342" },
+      { id: FOREST, name: "Forest", color: "#2e7d32" },
+      { id: JUNGLE, name: "Jungle", color: "#145a32" },
+      { id: DESERT, name: "Desert", color: "#d4a017" },
+      { id: MOUNTAIN, name: "Mountain", color: "#757575" },
+      { id: SNOW, name: "Snow", color: "#eceff1" },
+    ];
+
+    const COLORS = BIOMES.map((b) => b.color);
+
+    /** parent biome → weighted child biomes */
+    const CHILD_TABLE = {
+      [OCEAN]: [
+        [OCEAN, 0.88],
+        [COAST, 0.1],
+        [PLAINS, 0.02],
+      ],
+      [COAST]: [
+        [COAST, 0.45],
+        [OCEAN, 0.28],
+        [PLAINS, 0.2],
+        [DESERT, 0.05],
+        [FOREST, 0.02],
+      ],
+      [PLAINS]: [
+        [PLAINS, 0.68],
+        [FOREST, 0.16],
+        [DESERT, 0.06],
+        [COAST, 0.05],
+        [OCEAN, 0.03],
+        [MOUNTAIN, 0.02],
+      ],
+      [FOREST]: [
+        [FOREST, 0.72],
+        [PLAINS, 0.14],
+        [JUNGLE, 0.06],
+        [OCEAN, 0.04],
+        [MOUNTAIN, 0.04],
+      ],
+      [JUNGLE]: [
+        [JUNGLE, 0.74],
+        [FOREST, 0.12],
+        [PLAINS, 0.06],
+        [OCEAN, 0.05],
+        [COAST, 0.03],
+      ],
+      [DESERT]: [
+        [DESERT, 0.78],
+        [PLAINS, 0.1],
+        [MOUNTAIN, 0.07],
+        [COAST, 0.03],
+        [OCEAN, 0.02],
+      ],
+      [MOUNTAIN]: [
+        [MOUNTAIN, 0.62],
+        [SNOW, 0.18],
+        [PLAINS, 0.1],
+        [FOREST, 0.06],
+        [DESERT, 0.04],
+      ],
+      [SNOW]: [
+        [SNOW, 0.72],
+        [MOUNTAIN, 0.2],
+        [PLAINS, 0.05],
+        [FOREST, 0.03],
+      ],
+    };
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const seedInput = document.getElementById("seed");
+    const sizeInput = document.getElementById("size");
+    const dimensionInput = document.getElementById("dimension");
+    const smoothInput = document.getElementById("smooth");
+    const zoomHud = document.getElementById("zoomHud");
+    const legendEl = document.getElementById("legend");
+    const stage = document.getElementById("stage");
+
+    const cam = { x: 0, y: 0, zoom: 1 };
+    /** @type {Map<string, number>} */
+    let biomeCache = new Map();
+    let cacheSeed = null;
+    let cssW = 1;
+    let cssH = 1;
+    let rafId = 0;
+    let lastLogAt = 0;
+    let panning = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    legendEl.innerHTML = BIOMES.map(
+      (b) =>
+        `<span><i style="background:${b.color}"></i>${b.name}</span>`
+    ).join("");
+
+    function readParams() {
+      return {
+        seed: Math.floor(Number(seedInput.value) || 0),
+        size: Math.max(1, Math.floor(Number(sizeInput.value) || 8)),
+        dimension: Math.max(2, Math.floor(Number(dimensionInput.value) || 8)),
+        smooth: !!smoothInput.checked,
+      };
+    }
+
+    function hash2(x, y, seed) {
+      let n =
+        Math.imul(x | 0, 374761393) +
+        Math.imul(y | 0, 668265263) +
+        Math.imul(seed | 0, 1274126177);
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n = n ^ (n >>> 16);
+      return (n >>> 0) / 4294967296;
+    }
+
+    function valueNoise2D(x, y, seed) {
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const fx = x - x0;
+      const fy = y - y0;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash2(x0, y0, seed);
+      const v10 = hash2(x0 + 1, y0, seed);
+      const v01 = hash2(x0, y0 + 1, seed);
+      const v11 = hash2(x0 + 1, y0 + 1, seed);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    }
+
+    function fbm(x, y, seed, octaves) {
+      let amp = 1;
+      let freq = 1;
+      let sum = 0;
+      let norm = 0;
+      for (let i = 0; i < octaves; i++) {
+        sum += amp * valueNoise2D(x * freq, y * freq, seed + i * 1013);
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2;
+      }
+      return sum / norm;
+    }
+
+    function pickWeighted(weights, r) {
+      let acc = 0;
+      for (let i = 0; i < weights.length; i++) {
+        acc += weights[i][1];
+        if (r < acc) return weights[i][0];
+      }
+      return weights[weights.length - 1][0];
+    }
+
+    function isOceanCell(x, y, seed) {
+      return fbm(x * 0.07, y * 0.07, seed + 11, 5) < 0.47;
+    }
+
+    function landBiomeAt(x, y, seed) {
+      const temp = fbm(x * 0.09, y * 0.09, seed + 22, 4);
+      const moist = fbm(x * 0.11, y * 0.11, seed + 33, 4);
+      const elev = fbm(x * 0.14, y * 0.14, seed + 44, 4);
+
+      if (elev > 0.72) return temp < 0.42 ? SNOW : MOUNTAIN;
+      if (temp > 0.66) {
+        if (moist < 0.34) return DESERT;
+        if (moist > 0.64) return JUNGLE;
+        return PLAINS;
+      }
+      if (temp > 0.4) {
+        if (moist < 0.32) return PLAINS;
+        if (moist > 0.55) return FOREST;
+        return PLAINS;
+      }
+      if (moist > 0.5) return SNOW;
+      return MOUNTAIN;
+    }
+
+    function rootBiome(x, y, seed) {
+      if (isOceanCell(x, y, seed)) return OCEAN;
+      const dirs = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ];
+      for (let d = 0; d < 4; d++) {
+        if (isOceanCell(x + dirs[d][0], y + dirs[d][1], seed)) return COAST;
+      }
+      return landBiomeAt(x, y, seed);
+    }
+
+    function childBiome(parentBiome, wx, wy, worldSize, depth, seed, i, j, dimension) {
+      const cx = wx + worldSize * 0.5;
+      const cy = wy + worldSize * 0.5;
+      const r = hash2(
+        Math.floor(cx * 1024),
+        Math.floor(cy * 1024) ^ (depth * 9973),
+        seed + 77
+      );
+
+      let weights = CHILD_TABLE[parentBiome] || CHILD_TABLE[PLAINS];
+      const edge =
+        i === 0 || j === 0 || i === dimension - 1 || j === dimension - 1;
+
+      // On edges, bump chance of non-parent biomes slightly.
+      if (edge) {
+        const boosted = [];
+        for (let k = 0; k < weights.length; k++) {
+          const biome = weights[k][0];
+          const w = weights[k][1];
+          boosted.push([biome, biome === parentBiome ? w * 0.75 : w * 1.35]);
+        }
+        let sum = 0;
+        for (let k = 0; k < boosted.length; k++) sum += boosted[k][1];
+        for (let k = 0; k < boosted.length; k++) boosted[k][1] /= sum;
+        weights = boosted;
+      }
+
+      let biome = pickWeighted(weights, r);
+
+      // Rare oasis / island spice
+      const rare = hash2(Math.floor(cx * 2048), Math.floor(cy * 2048), seed + 88);
+      if (parentBiome === DESERT && rare < 0.02) biome = PLAINS;
+      if (parentBiome === OCEAN && rare < 0.015) biome = COAST;
+
+      // Fine land/water noise only gently nudges coasts & rivers
+      if (parentBiome === PLAINS || parentBiome === FOREST || parentBiome === JUNGLE) {
+        const waterN = fbm(cx * (0.07 * Math.pow(2, depth)), cy * (0.07 * Math.pow(2, depth)), seed + 55, 3);
+        if (waterN < 0.28 && rare < 0.08) biome = OCEAN;
+      }
+
+      return biome;
+    }
+
+    function ensureBiome(path, depth, wx, wy, worldSize, parentBiome, seed, i, j, dimension, stats) {
+      const cached = biomeCache.get(path);
+      if (cached != null) {
+        stats.fromCache++;
+        return cached;
+      }
+
+      let biome;
+      if (depth === 0) {
+        biome = rootBiome(Math.floor(wx), Math.floor(wy), seed);
+      } else {
+        biome = childBiome(
+          parentBiome,
+          wx,
+          wy,
+          worldSize,
+          depth,
+          seed,
+          i,
+          j,
+          dimension
+        );
+      }
+
+      biomeCache.set(path, biome);
+      stats.generated++;
+      return biome;
+    }
+
+    function updateHud() {
+      zoomHud.textContent = cam.zoom.toFixed(2) + "×";
+    }
+
+    function draw() {
+      const t0 = performance.now();
+      const { seed, size, dimension, smooth } = readParams();
+
+      if (cacheSeed !== seed) {
+        biomeCache = new Map();
+        cacheSeed = seed;
+        cam.x = 0;
+        cam.y = 0;
+        cam.zoom = 1;
+      }
+
+      const scale = size * cam.zoom;
+      const splitThreshold = size * dimension;
+      const fadeStart = splitThreshold * SMOOTH_FADE_START;
+      const viewX = cam.x;
+      const viewY = cam.y;
+      const viewRight = viewX + cssW / scale;
+      const viewBottom = viewY + cssH / scale;
+
+      ctx.clearRect(0, 0, cssW, cssH);
+      ctx.globalAlpha = 1;
+
+      const stats = {
+        fromCache: 0,
+        generated: 0,
+        drawn: 0,
+        maxDrawnDepth: 0,
+      };
+
+      let lastFill = "";
+      let lastAlpha = 1;
+
+      function setFill(fill, alpha) {
+        if (alpha !== lastAlpha) {
+          ctx.globalAlpha = alpha;
+          lastAlpha = alpha;
+        }
+        if (fill !== lastFill) {
+          ctx.fillStyle = fill;
+          lastFill = fill;
+        }
+      }
+
+      function paintCell(wx, wy, worldSize, biome, alpha) {
+        const screenSize = worldSize * scale;
+        const sx = (wx - cam.x) * scale;
+        const sy = (wy - cam.y) * scale;
+        setFill(COLORS[biome], alpha);
+        ctx.fillRect(sx, sy, screenSize + 0.5, screenSize + 0.5);
+        stats.drawn++;
+      }
+
+      function blendFactor(screenSize) {
+        if (!smooth) return screenSize >= splitThreshold ? 1 : 0;
+        if (screenSize >= splitThreshold) return 1;
+        if (screenSize <= fadeStart) return 0;
+        return (screenSize - fadeStart) / (splitThreshold - fadeStart);
+      }
+
+      function drawChildren(path, depth, wx, wy, worldSize, parentBiome) {
+        const childSize = worldSize / dimension;
+        const i0 = Math.max(0, Math.floor((viewX - wx) / childSize));
+        const i1 = Math.min(dimension, Math.ceil((viewRight - wx) / childSize));
+        const j0 = Math.max(0, Math.floor((viewY - wy) / childSize));
+        const j1 = Math.min(dimension, Math.ceil((viewBottom - wy) / childSize));
+        for (let j = j0; j < j1; j++) {
+          for (let i = i0; i < i1; i++) {
+            drawCell(
+              path + "/" + i + "," + j,
+              depth + 1,
+              wx + i * childSize,
+              wy + j * childSize,
+              childSize,
+              parentBiome,
+              i,
+              j
+            );
+          }
+        }
+      }
+
+      function drawCell(path, depth, wx, wy, worldSize, parentBiome, i, j) {
+        if (
+          wx >= viewRight ||
+          wy >= viewBottom ||
+          wx + worldSize <= viewX ||
+          wy + worldSize <= viewY
+        ) {
+          return;
+        }
+
+        const biome = ensureBiome(
+          path,
+          depth,
+          wx,
+          wy,
+          worldSize,
+          parentBiome,
+          seed,
+          i | 0,
+          j | 0,
+          dimension,
+          stats
+        );
+        const screenSize = worldSize * scale;
+        const canSplit = depth < MAX_DEPTH;
+        const t = canSplit ? blendFactor(screenSize) : 0;
+
+        if (t >= 1) {
+          drawChildren(path, depth, wx, wy, worldSize, biome);
+          return;
+        }
+
+        if (t > 0) {
+          drawChildren(path, depth, wx, wy, worldSize, biome);
+          paintCell(wx, wy, worldSize, biome, 1 - t);
+        } else {
+          paintCell(wx, wy, worldSize, biome, 1);
+        }
+
+        if (depth > stats.maxDrawnDepth) stats.maxDrawnDepth = depth;
+      }
+
+      const x0 = Math.floor(viewX);
+      const y0 = Math.floor(viewY);
+      const x1 = Math.ceil(viewRight);
+      const y1 = Math.ceil(viewBottom);
+
+      for (let gy = y0; gy < y1; gy++) {
+        for (let gx = x0; gx < x1; gx++) {
+          drawCell(gx + "," + gy, 0, gx, gy, 1, null, 0, 0);
+        }
+      }
+
+      if (lastAlpha !== 1) ctx.globalAlpha = 1;
+      updateHud();
+
+      const ms = performance.now() - t0;
+      const now = performance.now();
+      if (now - lastLogAt >= 300) {
+        lastLogAt = now;
+        console.log("[biomes] draw", {
+          seed,
+          size,
+          dimension,
+          smooth,
+          zoom: Math.round(cam.zoom * 100) / 100,
+          maxDrawnDepth: stats.maxDrawnDepth,
+          cells: {
+            fromCache: stats.fromCache,
+            generated: stats.generated,
+            drawn: stats.drawn,
+            cached: biomeCache.size,
+          },
+          durationMs: Math.round(ms * 100) / 100,
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      cssW = stage.clientWidth;
+      cssH = stage.clientHeight;
+      canvas.width = Math.max(1, Math.floor(cssW * dpr));
+      canvas.height = Math.max(1, Math.floor(cssH * dpr));
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function scheduleDraw() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        draw();
+      });
+    }
+
+    function resizeAndDraw() {
+      resizeCanvas();
+      scheduleDraw();
+    }
+
+    function onParamsChange() {
+      biomeCache = new Map();
+      cacheSeed = null;
+      cam.x = 0;
+      cam.y = 0;
+      cam.zoom = 1;
+      resizeAndDraw();
+    }
+
+    function screenToWorld(sx, sy, size, zoom) {
+      const scale = size * zoom;
+      return {
+        x: cam.x + sx / scale,
+        y: cam.y + sy / scale,
+      };
+    }
+
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const { size } = readParams();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const before = screenToWorld(mx, my, size, cam.zoom);
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        cam.zoom = Math.max(MIN_ZOOM, cam.zoom * factor);
+        const after = screenToWorld(mx, my, size, cam.zoom);
+        cam.x += before.x - after.x;
+        cam.y += before.y - after.y;
+        scheduleDraw();
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 2) return;
+      panning = true;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!panning) return;
+      const { size } = readParams();
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      const scale = size * cam.zoom;
+      cam.x -= dx / scale;
+      cam.y -= dy / scale;
+      scheduleDraw();
+    });
+
+    function endPan(e) {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = "crosshair";
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    canvas.addEventListener("pointerup", endPan);
+    canvas.addEventListener("pointercancel", endPan);
+
+    seedInput.addEventListener("input", onParamsChange);
+    sizeInput.addEventListener("input", onParamsChange);
+    dimensionInput.addEventListener("input", onParamsChange);
+    smoothInput.addEventListener("change", scheduleDraw);
+    window.addEventListener("resize", resizeAndDraw);
+
+    resizeAndDraw();
+  </script>
+</body>
+</html>

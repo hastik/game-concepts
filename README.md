@@ -68,6 +68,14 @@ game-concepts/
 ## Existující hry
 
 - **Cozy Cottage** (`cozy-cottage/`) – Relaxační pixel-art hra v útulné chaloupce
+- **Malý magnát** (`maly-magnat/`) – Budovatelská ekonomika / tycoon
+- **Random Shooter** (`randomshooter/`) – Neonový arcade shooter s vlnami a shopem
+- **Sensible Handball** (`sensible-handball/`) – Top-down házená (ES moduly)
+- **Hex Colony** (`pixelplay/`) – Hexová kolonie (+ Pixels, Streets)
+- **Smart Biomes** (`pixelzoom/`) – Procedurální biomy se zoomem
+- **Topdown Shooter** (`topdown-shooter/`) – Shooter s viditelností a zvukem
+- **Hold The Line** (`tower-defense/`) – Tower defense / line-hold
+- **Vlak** (`train/`) – CRT vlakový prototyp
 
 ## GitHub Pages
 

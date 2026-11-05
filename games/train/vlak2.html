@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vlak 2 — plynulý pohyb</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem 1.5rem;
+      padding: 0.6rem 1rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #toolbar .title {
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #f0c040;
+    }
+
+    #toolbar .stat {
+      font-size: 0.875rem;
+      color: #bbb;
+    }
+
+    #toolbar .stat strong {
+      color: #eee;
+      font-weight: 600;
+    }
+
+    #toolbar .hint {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+    }
+
+    #canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      pointer-events: none;
+    }
+
+    #overlay.visible { display: flex; }
+
+    #overlay .msg {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 1rem 1.5rem;
+      color: #fff;
+      text-shadow: 0 2px 0 #000;
+    }
+
+    #overlay.crash .msg { color: #ff6b6b; }
+    #overlay.win .msg { color: #7dffa0; }
+    #overlay.done .msg { color: #f0c040; }
+
+    #overlay .sub {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: #ccc;
+      text-transform: none;
+    }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <span class="title">VLAK 2</span>
+    <span class="stat">Level <strong id="levelName">START</strong></span>
+    <span class="stat">Předměty <strong id="itemCount">0 / 0</strong></span>
+    <span class="hint">Šipky / WASD · R restart</span>
+  </header>
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+    <div id="overlay"><div class="msg" id="overlayMsg"></div></div>
+  </div>
+  <script>
+    const COLS = 20;
+    const ROWS = 12;
+    const CELL = 16;
+    // Same pace as vlak1 (~1 cell / 165 ms), but continuous pixels
+    const SPEED_PPS = CELL / 0.165;
+    const CRASH_MS = 900;
+    const WIN_MS = 900;
+
+    const DIRS = {
+      up:    { x: 0, y: -1 },
+      down:  { x: 0, y: 1 },
+      left:  { x: -1, y: 0 },
+      right: { x: 1, y: 0 },
+    };
+
+    const OPPOSITE = {
+      up: "down", down: "up", left: "right", right: "left",
+    };
+
+    const ITEM_COLORS = {
+      A: { body: "#5ec8ff", accent: "#c8f0ff" },
+      B: { body: "#f0c040", accent: "#fff0a0" },
+      C: { body: "#4caf50", accent: "#8b5a2b" },
+      D: { body: "#e74c3c", accent: "#7d3c2b" },
+      E: { body: "#fff8e7", accent: "#c49a6c" },
+    };
+
+    const LEVELS = [
+      {
+        name: "START",
+        map: [
+          "####################",
+          "#..................#",
+          "#..A..........B....#",
+          "#..................#",
+          "#........$.........#",
+          "#..................#",
+          "#..................#",
+          "#..C..........D....#",
+          "#..................#",
+          "#.........@........#",
+          "#..................#",
+          "####################",
+        ],
+      },
+      {
+        name: "ROHY",
+        map: [
+          "####################",
+          "#$.......##.......A#",
+          "#........##........#",
+          "#........##........#",
+          "#..................#",
+          "####............####",
+          "####............####",
+          "#..................#",
+          "#........##........#",
+          "#B.......##.......C#",
+          "#........@.........#",
+          "####################",
+        ],
+      },
+      {
+        name: "KRIZ",
+        map: [
+          "####################",
+          "#$....#......#....A#",
+          "#.....#..##..#.....#",
+          "#.....#..##..#.....#",
+          "#...........B......#",
+          "###.####....####.###",
+          "###.####....####.###",
+          "#......C...........#",
+          "#.....#..##..#.....#",
+          "#D....#..##..#....E#",
+          "#.....#..@...#.....#",
+          "####################",
+        ],
+      },
+      {
+        name: "BLUD",
+        map: [
+          "####################",
+          "#$A#....#....#....B#",
+          "#.##.##.#.##.#.##.##",
+          "#....#....#....#...#",
+          "####.#.####.####.#.#",
+          "#....#......C....#.#",
+          "#.####.######.####.#",
+          "#.#....#....#......#",
+          "#.#.####.##.#.####.#",
+          "#D#......##......E@#",
+          "#..................#",
+          "####################",
+        ],
+      },
+    ];
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const stage = document.getElementById("stage");
+    const overlay = document.getElementById("overlay");
+    const overlayMsg = document.getElementById("overlayMsg");
+    const levelNameEl = document.getElementById("levelName");
+    const itemCountEl = document.getElementById("itemCount");
+
+    const pxW = COLS * CELL;
+    const pxH = ROWS * CELL;
+
+    let levelIndex = 0;
+    let walls;
+    let items;
+    let gate;
+    let train;
+    let pendingDir = null;
+    let state = "play";
+    let totalItems = 0;
+    let animPhase = 0;
+    let lastNow = 0;
+    let moveCarry = 0;
+    let stateUntil = 0;
+    let scale = 1;
+    let lastHeadCell = null;
+
+    function key(x, y) {
+      return x + "," + y;
+    }
+
+    function parseLevel(def) {
+      const w = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+      const itemMap = new Map();
+      let loco = null;
+      let gatePos = null;
+      let count = 0;
+
+      for (let y = 0; y < ROWS; y++) {
+        const row = def.map[y];
+        for (let x = 0; x < COLS; x++) {
+          const ch = row[x];
+          if (ch === "#") w[y][x] = true;
+          else if (ch === "$") loco = { x, y };
+          else if (ch === "@") gatePos = { x, y };
+          else if (ITEM_COLORS[ch]) {
+            itemMap.set(key(x, y), ch);
+            count++;
+          }
+        }
+      }
+
+      if (!loco || !gatePos) throw new Error("Level missing loco or gate: " + def.name);
+
+      const hx = loco.x * CELL;
+      const hy = loco.y * CELL;
+
+      return {
+        walls: w,
+        items: itemMap,
+        gate: gatePos,
+        train: {
+          dir: "right",
+          path: [{ x: hx, y: hy }],
+          wagons: [],
+          pendingGrow: 0,
+        },
+        totalItems: count,
+      };
+    }
+
+    function loadLevel(index) {
+      levelIndex = index;
+      const parsed = parseLevel(LEVELS[index]);
+      walls = parsed.walls;
+      items = parsed.items;
+      gate = parsed.gate;
+      train = parsed.train;
+      totalItems = parsed.totalItems;
+      pendingDir = null;
+      state = "play";
+      stateUntil = 0;
+      animPhase = 0;
+      moveCarry = 0;
+      lastNow = performance.now();
+      lastHeadCell = cellOf(train.path[0].x, train.path[0].y);
+      hideOverlay();
+      updateHud();
+    }
+
+    function updateHud() {
+      levelNameEl.textContent = LEVELS[levelIndex].name;
+      const remaining = items.size;
+      if (remaining === 0 && state === "play") {
+        itemCountEl.textContent = "brána otevřena";
+      } else {
+        itemCountEl.textContent = remaining + " / " + totalItems;
+      }
+    }
+
+    function showOverlay(kind, html) {
+      overlay.className = "visible " + kind;
+      overlayMsg.innerHTML = html;
+    }
+
+    function hideOverlay() {
+      overlay.className = "";
+      overlayMsg.innerHTML = "";
+    }
+
+    function resize() {
+      const rect = stage.getBoundingClientRect();
+      const pad = 16;
+      const availW = Math.max(1, rect.width - pad * 2);
+      const availH = Math.max(1, rect.height - pad * 2);
+      scale = Math.max(1, Math.floor(Math.min(availW / pxW, availH / pxH)));
+      canvas.width = pxW;
+      canvas.height = pxH;
+      canvas.style.width = pxW * scale + "px";
+      canvas.style.height = pxH * scale + "px";
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    function cellOf(px, py) {
+      return { x: Math.floor(px / CELL), y: Math.floor(py / CELL) };
+    }
+
+    function isAligned(px, py) {
+      return px % CELL === 0 && py % CELL === 0;
+    }
+
+    function pathMaxLen() {
+      return 1 + train.wagons.length * CELL;
+    }
+
+    function wagonPositions() {
+      const path = train.path;
+      const last = path.length - 1;
+      const out = [];
+      for (let i = 0; i < train.wagons.length; i++) {
+        const idx = last - (i + 1) * CELL;
+        if (idx < 0) {
+          out.push(path[0]);
+        } else {
+          out.push(path[idx]);
+        }
+      }
+      return out;
+    }
+
+    function headPos() {
+      return train.path[train.path.length - 1];
+    }
+
+    // Grid cells occupied by wagons. Skip the neck (first wagon) — it sits
+    // immediately behind the loco and causes false crashes on 90° turns.
+    // Skip the tip of the tail when not growing (it vacates as we move).
+    function occupiedCells(skipTail) {
+      const cells = new Set();
+      const path = train.path;
+      const last = path.length - 1;
+      const n = train.wagons.length;
+      for (let i = 0; i < n; i++) {
+        if (i === 0) continue; // neck
+        if (skipTail && i === n - 1) continue;
+        const idx = last - (i + 1) * CELL;
+        if (idx < 0) continue;
+        const c = cellOf(path[idx].x, path[idx].y);
+        cells.add(key(c.x, c.y));
+      }
+      return cells;
+    }
+
+    function trySetDir(next) {
+      if (state !== "play") return;
+      if (OPPOSITE[train.dir] === next && train.wagons.length > 0) return;
+      pendingDir = next;
+    }
+
+    function tryApplyPendingDir() {
+      if (!pendingDir) return;
+      const head = headPos();
+      if (!isAligned(head.x, head.y)) return;
+      if (OPPOSITE[train.dir] === pendingDir && train.wagons.length > 0) {
+        pendingDir = null;
+        return;
+      }
+      train.dir = pendingDir;
+      pendingDir = null;
+    }
+
+    function crash() {
+      state = "crash";
+      stateUntil = performance.now() + CRASH_MS;
+      showOverlay("crash", "Náraz!<span class=\"sub\">restart levelu…</span>");
+    }
+
+    function enterGate() {
+      if (levelIndex >= LEVELS.length - 1) {
+        state = "done";
+        stateUntil = performance.now() + 2200;
+        showOverlay("done", "Hotovo!<span class=\"sub\">R — hrát znovu</span>");
+      } else {
+        state = "win";
+        stateUntil = performance.now() + WIN_MS;
+        showOverlay("win", "Level hotov!<span class=\"sub\">další scéna…</span>");
+      }
+    }
+
+    function onEnterCell(cx, cy) {
+      if (cx === gate.x && cy === gate.y) {
+        if (items.size === 0) {
+          enterGate();
+          return true;
+        }
+        crash();
+        return true;
+      }
+
+      const k = key(cx, cy);
+      if (items.has(k)) {
+        const cargo = items.get(k);
+        items.delete(k);
+        train.wagons.push({ cargo });
+        train.pendingGrow += CELL;
+        updateHud();
+      }
+      return false;
+    }
+
+    function stepPixel() {
+      if (state !== "play") return;
+
+      tryApplyPendingDir();
+
+      const d = DIRS[train.dir];
+      const head = headPos();
+      const nx = head.x + d.x;
+      const ny = head.y + d.y;
+      const cell = cellOf(nx, ny);
+
+      if (
+        cell.x < 0 || cell.y < 0 ||
+        cell.x >= COLS || cell.y >= ROWS ||
+        walls[cell.y][cell.x]
+      ) {
+        crash();
+        return;
+      }
+
+      const entering =
+        !lastHeadCell || lastHeadCell.x !== cell.x || lastHeadCell.y !== cell.y;
+
+      // Self-collision only when entering a new grid cell (same rules as vlak1)
+      if (entering) {
+        const skipTail = train.pendingGrow === 0;
+        if (occupiedCells(skipTail).has(key(cell.x, cell.y))) {
+          crash();
+          return;
+        }
+      }
+
+      train.path.push({ x: nx, y: ny });
+
+      // Collect / gate before path trimming so growth is applied first
+      if (entering) {
+        lastHeadCell = cell;
+        if (onEnterCell(cell.x, cell.y)) return;
+      }
+
+      if (train.pendingGrow > 0) {
+        train.pendingGrow--;
+      } else {
+        const max = pathMaxLen();
+        while (train.path.length > max) train.path.shift();
+      }
+    }
+
+    // ---- Drawing ----
+
+    function fillRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    function drawCellBg(x, y) {
+      const px = x * CELL;
+      const py = y * CELL;
+      const checker = (x + y) % 2 === 0;
+      fillRect(px, py, CELL, CELL, checker ? "#1c2430" : "#18202a");
+    }
+
+    function drawWall(x, y) {
+      const px = x * CELL;
+      const py = y * CELL;
+      fillRect(px, py, CELL, CELL, "#3a4558");
+      fillRect(px + 1, py + 1, CELL - 2, CELL - 2, "#4a5670");
+      fillRect(px + 2, py + 2, 4, 4, "#6a7898");
+      fillRect(px + 10, py + 2, 4, 4, "#6a7898");
+      fillRect(px + 2, py + 10, 4, 4, "#2e3648");
+      fillRect(px + 10, py + 10, 4, 4, "#2e3648");
+    }
+
+    function drawGate(x, y, open) {
+      const px = x * CELL;
+      const py = y * CELL;
+      fillRect(px, py, CELL, CELL, "#152018");
+      fillRect(px + 2, py + 1, 3, CELL - 2, open ? "#7dffa0" : "#445544");
+      fillRect(px + 11, py + 1, 3, CELL - 2, open ? "#7dffa0" : "#445544");
+      fillRect(px + 5, py + 1, 6, 2, open ? "#a8ffc8" : "#556655");
+      fillRect(px + 5, py + CELL - 3, 6, 2, open ? "#a8ffc8" : "#556655");
+      if (open && (animPhase & 1) === 0) {
+        fillRect(px + 6, py + 5, 4, 6, "#c8ffe0");
+      }
+    }
+
+    function drawItem(x, y, type) {
+      const px = x * CELL;
+      const py = y * CELL;
+      const c = ITEM_COLORS[type];
+      const bob = animPhase & 1;
+
+      if (type === "A") {
+        fillRect(px + 7, py + 2 + bob, 2, 12, c.body);
+        fillRect(px + 4, py + 5 + bob, 8, 6, c.body);
+        fillRect(px + 6, py + 6 + bob, 2, 2, c.accent);
+      } else if (type === "B") {
+        fillRect(px + 3, py + 8 + bob, 10, 5, c.body);
+        fillRect(px + 3, py + 5 + bob, 2, 3, c.body);
+        fillRect(px + 7, py + 4 + bob, 2, 4, c.body);
+        fillRect(px + 11, py + 5 + bob, 2, 3, c.body);
+        fillRect(px + 7, py + 3 + bob, 2, 2, c.accent);
+      } else if (type === "C") {
+        fillRect(px + 7, py + 9, 2, 5, c.accent);
+        fillRect(px + 4, py + 3 + bob, 8, 7, c.body);
+        fillRect(px + 6, py + 2 + bob, 4, 2, c.body);
+      } else if (type === "D") {
+        fillRect(px + 4, py + 5 + bob, 8, 8, c.body);
+        fillRect(px + 7, py + 3 + bob, 2, 3, c.accent);
+        fillRect(px + 6, py + 7 + bob, 2, 2, "#ffaaaa");
+      } else {
+        fillRect(px + 3, py + 6 + bob, 10, 6, c.body);
+        fillRect(px + 11, py + 4 + bob, 3, 4, c.body);
+        fillRect(px + 3, py + 12 + bob, 2, 2, c.accent);
+        fillRect(px + 9, py + 12 + bob, 2, 2, c.accent);
+        fillRect(px + 12, py + 5 + bob, 1, 1, "#222");
+      }
+    }
+
+    function drawLoco(px, py, dir) {
+      fillRect(px + 2, py + 4, 12, 8, "#e8a020");
+      fillRect(px + 3, py + 5, 10, 6, "#f0c040");
+      fillRect(px + 4, py + 2, 4, 3, "#c87810");
+      fillRect(px + 2, py + 12, 3, 2, "#333");
+      fillRect(px + 11, py + 12, 3, 2, "#333");
+
+      if (dir === "right") {
+        fillRect(px + 10, py + 6, 3, 3, "#7ec8ff");
+        fillRect(px + 14, py + 7, 2, 2, "#fff8a0");
+      } else if (dir === "left") {
+        fillRect(px + 3, py + 6, 3, 3, "#7ec8ff");
+        fillRect(px, py + 7, 2, 2, "#fff8a0");
+      } else if (dir === "up") {
+        fillRect(px + 6, py + 3, 3, 3, "#7ec8ff");
+        fillRect(px + 7, py, 2, 2, "#fff8a0");
+      } else {
+        fillRect(px + 6, py + 8, 3, 3, "#7ec8ff");
+        fillRect(px + 7, py + 14, 2, 2, "#fff8a0");
+      }
+    }
+
+    function drawWagon(px, py, cargo) {
+      fillRect(px + 2, py + 5, 12, 7, "#8b5a2b");
+      fillRect(px + 3, py + 6, 10, 5, "#a86b35");
+      fillRect(px + 2, py + 12, 3, 2, "#333");
+      fillRect(px + 11, py + 12, 3, 2, "#333");
+      fillRect(px + 1, py + 7, 1, 3, "#666");
+      fillRect(px + 14, py + 7, 1, 3, "#666");
+
+      if (cargo && ITEM_COLORS[cargo]) {
+        const c = ITEM_COLORS[cargo];
+        fillRect(px + 5, py + 7, 6, 4, c.body);
+        fillRect(px + 6, py + 8, 2, 2, c.accent);
+      }
+    }
+
+    function draw() {
+      ctx.imageSmoothingEnabled = false;
+      fillRect(0, 0, pxW, pxH, "#0a0a0a");
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          drawCellBg(x, y);
+          if (walls[y][x]) drawWall(x, y);
+        }
+      }
+
+      drawGate(gate.x, gate.y, items.size === 0);
+
+      for (const [k, type] of items) {
+        const [sx, sy] = k.split(",").map(Number);
+        drawItem(sx, sy, type);
+      }
+
+      const wagons = wagonPositions();
+      for (let i = wagons.length - 1; i >= 0; i--) {
+        const p = wagons[i];
+        drawWagon(p.x, p.y, train.wagons[i].cargo);
+      }
+
+      const head = headPos();
+      drawLoco(head.x, head.y, train.dir);
+
+      if (state === "crash") {
+        ctx.fillStyle = "rgba(180, 40, 40, 0.25)";
+        ctx.fillRect(0, 0, pxW, pxH);
+      }
+    }
+
+    function frame(now) {
+      if (!lastNow) lastNow = now;
+      const dt = Math.min(0.05, (now - lastNow) / 1000);
+      lastNow = now;
+
+      if (state === "play") {
+        moveCarry += SPEED_PPS * dt;
+        let steps = 0;
+        while (moveCarry >= 1 && state === "play" && steps < 32) {
+          moveCarry -= 1;
+          stepPixel();
+          steps++;
+        }
+        animPhase = (now / 200) | 0;
+      } else if (state === "crash") {
+        if (now >= stateUntil) loadLevel(levelIndex);
+      } else if (state === "win") {
+        if (now >= stateUntil) loadLevel(levelIndex + 1);
+      }
+
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    function onKey(e) {
+      const k = e.key.toLowerCase();
+      if (k === "arrowup" || k === "w") { e.preventDefault(); trySetDir("up"); }
+      else if (k === "arrowdown" || k === "s") { e.preventDefault(); trySetDir("down"); }
+      else if (k === "arrowleft" || k === "a") { e.preventDefault(); trySetDir("left"); }
+      else if (k === "arrowright" || k === "d") { e.preventDefault(); trySetDir("right"); }
+      else if (k === "r") {
+        e.preventDefault();
+        if (state === "done") loadLevel(0);
+        else loadLevel(levelIndex);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", resize);
+
+    resize();
+    loadLevel(0);
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hex Colony</title>
+  <style>
+    :root {
+      --bg: #0a0e12;
+      --panel: #121820;
+      --panel2: #182230;
+      --border: #243044;
+      --text: #d8e2ee;
+      --muted: #7a8ba0;
+      --accent: #3de0c0;
+      --accent2: #5b9dff;
+      --warn: #f0a050;
+      --bad: #ff5a6a;
+      --good: #4adf7a;
+      --hex-stroke: #2a3a50;
+      --hex-fill: #101820;
+      --hex-hover: #1a2838;
+      --buildable: #142018;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    #app {
+      display: grid;
+      grid-template-rows: 48px 1fr 44px;
+      grid-template-columns: 200px 1fr 300px;
+      height: 100%;
+    }
+    #top {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 0 0.9rem;
+      background: linear-gradient(180deg, #141c28, #0e141c);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    #top .brand {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-right: 0.5rem;
+    }
+    .kpi { display: flex; flex-direction: column; line-height: 1.15; }
+    .kpi .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+    #left, #right {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 0.7rem;
+    }
+    #right { border-right: none; border-left: 1px solid var(--border); }
+    #center {
+      position: relative;
+      background:
+        radial-gradient(ellipse at 50% 40%, #122030 0%, transparent 55%),
+        linear-gradient(180deg, #0b1016, #0a0e12);
+      overflow: hidden;
+    }
+    #map { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    #bottom {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0 0.9rem;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+    }
+    h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 0.6rem 0 0.35rem;
+    }
+    h2:first-child { margin-top: 0; }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
+      padding: 0.35rem 0.55rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.active { border-color: var(--accent); background: #143430; color: var(--accent); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.primary { border-color: var(--accent); color: var(--accent); }
+    .btn.danger { border-color: var(--bad); color: var(--bad); }
+    .build-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.4rem;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+    .build-item:hover, .build-item.sel { background: var(--panel2); border-color: var(--border); }
+    .build-item.sel { border-color: var(--accent); }
+    .build-item .cost { color: var(--accent2); font-variant-numeric: tabular-nums; }
+    .muted { color: var(--muted); }
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .row { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; margin: 0.25rem 0; }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.15rem 0;
+      border-bottom: 1px solid #1a2430;
+    }
+    .stat span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+    select, input[type="range"], input[type="number"] {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 0.25rem 0.35rem;
+      font: inherit;
+      max-width: 100%;
+    }
+    .panel-block {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem;
+      margin: 0.4rem 0;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+      background: #1c2838;
+      font-size: 10px;
+      margin: 1px;
+    }
+    .overlay-bar { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+    #hint {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      color: var(--muted);
+      font-size: 11px;
+      pointer-events: none;
+      background: rgba(10,14,18,0.7);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+    }
+    .block-reason {
+      margin-top: 0.35rem;
+      padding: 0.3rem 0.4rem;
+      background: #2a1820;
+      border: 1px solid #4a2830;
+      border-radius: 4px;
+      color: var(--bad);
+      font-size: 11px;
+    }
+    .order-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.2rem;
+      font-size: 11px;
+      padding: 0.2rem 0;
+      border-bottom: 1px solid #1a2430;
+    }
+    .scroll-list { max-height: 160px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header id="top">
+      <div class="brand">HEX COLONY</div>
+      <div class="kpi"><span class="l">Time</span><span class="v" id="k-time">0s</span></div>
+      <div class="kpi"><span class="l">Credits</span><span class="v" id="k-credits">0</span></div>
+      <div class="kpi"><span class="l">Orders</span><span class="v" id="k-orders">0 / 0 / 0</span></div>
+      <div class="kpi"><span class="l">On-time</span><span class="v" id="k-ontime">—</span></div>
+      <div class="kpi"><span class="l">Picks/s</span><span class="v" id="k-picks">0.0</span></div>
+      <div class="kpi"><span class="l">Demand cov.</span><span class="v" id="k-cov">0%</span></div>
+      <div class="kpi"><span class="l">Fill rate</span><span class="v" id="k-fill">0%</span></div>
+      <div class="kpi"><span class="l">Backorders</span><span class="v" id="k-bo">0</span></div>
+      <div class="kpi"><span class="l">Storage</span><span class="v" id="k-stor">0%</span></div>
+      <div class="kpi"><span class="l">Reputation</span><span class="v" id="k-rep">100</span></div>
+    </header>
+
+    <aside id="left">
+      <h2>Build</h2>
+      <div id="build-list"></div>
+      <h2>Overlay</h2>
+      <div class="overlay-bar" id="overlays"></div>
+      <h2>Scenario</h2>
+      <div class="panel-block">
+        <div class="stat"><span>Misroute %</span><span id="cfg-misroute">3</span></div>
+        <input type="range" id="misroute-slider" min="0" max="100" value="3" />
+        <div class="stat"><span>Order rate /s</span><span id="cfg-orderrate">0.4</span></div>
+        <input type="range" id="orderrate-slider" min="0" max="30" value="4" />
+        <div class="muted" style="margin-top:0.35rem;font-size:11px">
+          Demo: 300 SKU · S/M only · Truck transport
+        </div>
+      </div>
+    </aside>
+
+    <main id="center">
+      <canvas id="map"></canvas>
+      <div id="hint">LMB výběr/stavba · RMB zrušit · prostřední pan · RMB tažení zoom</div>
+    </main>
+
+    <aside id="right">
+      <div id="detail"><div class="muted">Vyber hex nebo budovu.</div></div>
+    </aside>
+
+    <footer id="bottom">
+      <button class="btn" id="btn-pause">Pause</button>
+      <button class="btn" data-speed="1">1×</button>
+      <button class="btn active" data-speed="2">2×</button>
+      <button class="btn" data-speed="5">5×</button>
+      <button class="btn" data-speed="20">20×</button>
+      <span class="muted" id="sel-label" style="margin-left:0.5rem"></span>
+      <span style="flex:1"></span>
+      <button class="btn" id="btn-demo">Quick demo chain</button>
+      <button class="btn danger" id="btn-reset">Reset</button>
+    </footer>
+  </div>
+
+<script>
+(() => {
+"use strict";
+
+/* ===================== CONFIG ===================== */
+const CFG = {
+  mapRadius: 5,
+  skuCount: 300,
+  skuA: 40, skuB: 100, skuC: 160,
+  weightA: 15, weightB: 3, weightC: 0.5,
+  piecesPerPalletS: 20,
+  piecesPerPalletM: 8,
+  skyportRate: 1,
+  receivingCap: 50, receivingRate: 1,
+  sortingCap: 50, sortingRate: 1,
+  storageCap: 1000, storageInRate: 1, storageOutRate: 1,
+  packingRate: 2, packingBuf: 40,
+  expeditionRate: 2, expeditionBuf: 40,
+  truckHexPerSec: 1.5,
+  truckCostPerHex: 0.5,
+  orderDeadline: 90,
+  startCredits: 9000,
+  creditPerOrder: 25,
+  latePenalty: 15,
+  misrouteProbability: 0.03,
+  orderRate: 0.4,
+  heatSafeMax: 18,
+  coldSafeMin: -5,
+  radSafeMax: 0.4,
+};
+
+const TRAITS = ["LIVING","RADIOACTIVE","TOXIC","FLAMMABLE","FRAGILE","HEAT_SENSITIVE","COLD_SENSITIVE"];
+const SIZES = ["S","M"];
+const GRADES = ["A","B","C"];
+
+const BUILDINGS = {
+  RECEIVING: { name: "Receiving", cost: 500, icon: "⬇", color: "#3d8cff" },
+  SORTING: { name: "Sorting", cost: 600, icon: "⇅", color: "#7a6cff" },
+  PALLET_STORAGE: { name: "Pallet Storage", cost: 800, icon: "▣", color: "#3de0c0" },
+  PALLET_PICKING: { name: "Pallet Picking", cost: 700, icon: "☰", color: "#50c878",
+    pickRate: 1, maxSkuSlots: 50, maxUnits: 20000, replenRate: 2 },
+  SHELF_PICKING: { name: "Shelf Picking", cost: 900, icon: "▤", color: "#68d08a",
+    pickRate: 2, maxSkuSlots: 300, maxUnits: 9000, replenRate: 3 },
+  CONVEYOR_PICKING: { name: "Conveyor Picking", cost: 1500, icon: "⟫", color: "#f0a050",
+    pickRate: 10, maxSkuSlots: 100, maxUnits: 6000, replenRate: 4 },
+  ASRS_PICKING: { name: "ASRS Shuttle", cost: 2000, icon: "⬡", color: "#ff7ab8",
+    pickRate: 5, maxSkuSlots: 500, maxUnits: 12000, replenRate: 5 },
+  PACKING: { name: "Packing", cost: 500, icon: "▭", color: "#9ad0ff" },
+  EXPEDITION: { name: "Expedition", cost: 500, icon: "✈", color: "#ff5a6a" },
+};
+
+const PICK_TYPES = ["PALLET_PICKING","SHELF_PICKING","CONVEYOR_PICKING","ASRS_PICKING"];
+const STORAGE_TYPES = ["PALLET_STORAGE"];
+
+/* ===================== HEX MATH ===================== */
+const HEX_DIRS = [[+1,0],[0,+1],[-1,+1],[-1,0],[0,-1],[+1,-1]];
+
+function hexKey(q, r) { return q + "," + r; }
+function parseKey(k) { const [q,r] = k.split(",").map(Number); return {q,r}; }
+function hexDist(a, b) {
+  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+}
+function hexNeighbors(q, r) {
+  return HEX_DIRS.map(([dq,dr]) => ({q: q+dq, r: r+dr}));
+}
+function axialToPixel(q, r, size) {
+  const x = size * Math.sqrt(3) * (q + r / 2);
+  const y = size * (3 / 2) * r;
+  return {x, y};
+}
+function pixelToAxial(x, y, size) {
+  const q = (Math.sqrt(3)/3 * x - 1/3 * y) / size;
+  const r = (2/3 * y) / size;
+  return hexRound(q, r);
+}
+function hexRound(qf, rf) {
+  const sf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf), s = Math.round(sf);
+  const qd = Math.abs(q - qf), rd = Math.abs(r - rf), sd = Math.abs(s - sf);
+  if (qd > rd && qd > sd) q = -r - s;
+  else if (rd > sd) r = -q - s;
+  return {q, r};
+}
+function hexCorners(cx, cy, size) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 180 * (60 * i - 30);
+    pts.push([cx + size * Math.cos(angle), cy + size * Math.sin(angle)]);
+  }
+  return pts;
+}
+
+/* ===================== RNG ===================== */
+function mulberry32(a) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rng = mulberry32(42);
+function pickWeighted(items, weights) {
+  let sum = 0;
+  for (const w of weights) sum += w;
+  let r = rng() * sum;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+/* ===================== STATE ===================== */
+const state = {
+  time: 0,
+  paused: false,
+  speed: 2,
+  credits: CFG.startCredits,
+  reputation: 100,
+  overlay: "none",
+  buildMode: null,
+  selected: null,
+  hexes: new Map(),
+  buildings: new Map(),
+  nextBuildingId: 1,
+  catalog: [],
+  demandTotal: 0,
+  transports: [],
+  orders: [],
+  nextOrderId: 1,
+  replenRequests: [],
+  nextReplId: 1,
+  stats: {
+    ordersReceived: 0, ordersPicked: 0, ordersDispatched: 0,
+    onTime: 0, late: 0, picksAccum: 0, picksWindow: [],
+  },
+  skyport: null,
+};
+
+/* ===================== CATALOG ===================== */
+function makeCatalog() {
+  const cats = [];
+  for (let i = 0; i < CFG.skuA; i++) cats.push("A");
+  for (let i = 0; i < CFG.skuB; i++) cats.push("B");
+  for (let i = 0; i < CFG.skuC; i++) cats.push("C");
+  while (cats.length < CFG.skuCount) cats.push("C");
+  cats.length = CFG.skuCount;
+
+  const catalog = [];
+  for (let i = 0; i < CFG.skuCount; i++) {
+    const grade = cats[i];
+    const size = rng() < 0.65 ? "S" : "M";
+    const traits = [];
+    if (rng() < 0.08) traits.push("HEAT_SENSITIVE");
+    if (rng() < 0.06) traits.push("COLD_SENSITIVE");
+    if (rng() < 0.04) traits.push("FRAGILE");
+    if (rng() < 0.03) traits.push("FLAMMABLE");
+    if (rng() < 0.02) traits.push("TOXIC");
+    if (rng() < 0.015) traits.push("RADIOACTIVE");
+    if (rng() < 0.02) traits.push("LIVING");
+    const base = grade === "A" ? CFG.weightA : grade === "B" ? CFG.weightB : CFG.weightC;
+    const demandWeight = base * (0.7 + rng() * 0.6);
+    catalog.push({
+      id: "SKU-" + String(i + 1).padStart(3, "0"),
+      size, grade, traits, demandWeight,
+    });
+  }
+  state.catalog = catalog;
+  state.demandTotal = catalog.reduce((s, x) => s + x.demandWeight, 0);
+}
+
+function piecesFor(sku) {
+  return sku.size === "S" ? CFG.piecesPerPalletS : CFG.piecesPerPalletM;
+}
+
+function skuById(id) {
+  return state.catalog.find(s => s.id === id);
+}
+
+/* ===================== MAP ===================== */
+function initMap() {
+  state.hexes.clear();
+  for (let q = -CFG.mapRadius; q <= CFG.mapRadius; q++) {
+    for (let r = -CFG.mapRadius; r <= CFG.mapRadius; r++) {
+      if (hexDist({q,r}, {q:0,r:0}) > CFG.mapRadius) continue;
+      const temp = -8 + (q + CFG.mapRadius) * 2.2 + (rng() - 0.5) * 4;
+      const radiation = Math.max(0, (Math.abs(q) + Math.abs(r) - 4) * 0.12 + rng() * 0.1);
+      const vibration = 0.1 + rng() * 0.5;
+      const buildable = !(Math.abs(q) === CFG.mapRadius && Math.abs(r) >= CFG.mapRadius - 1 && rng() < 0.4);
+      const passable = true;
+      state.hexes.set(hexKey(q,r), {
+        q, r, temp, radiation, vibration,
+        buildable: buildable || (q === 0 && r === 0),
+        passable,
+        buildingId: null,
+      });
+    }
+  }
+  // Rocky unbuildable rim patches
+  for (const h of state.hexes.values()) {
+    if (hexDist(h, {q:0,r:0}) >= CFG.mapRadius - 0.1 && rng() < 0.25 && !(h.q===0&&h.r===0)) {
+      h.buildable = false;
+    }
+  }
+}
+
+/* ===================== INVENTORY ===================== */
+function emptyInv() { return new Map(); } // skuId -> {onHand, reserved, incoming}
+
+function invGet(inv, skuId) {
+  let e = inv.get(skuId);
+  if (!e) { e = { onHand: 0, reserved: 0, incoming: 0 }; inv.set(skuId, e); }
+  return e;
+}
+function invAvailable(inv, skuId) {
+  const e = inv.get(skuId);
+  if (!e) return 0;
+  return Math.max(0, e.onHand - e.reserved);
+}
+function invUnits(inv) {
+  let n = 0;
+  for (const e of inv.values()) n += e.onHand;
+  return n;
+}
+function invActiveSkus(inv) {
+  let n = 0;
+  for (const e of inv.values()) {
+    if (e.onHand > 0 || e.incoming > 0 || e.reserved > 0) n++;
+  }
+  return n;
+}
+function invReserve(inv, skuId, qty) {
+  const e = invGet(inv, skuId);
+  const avail = e.onHand - e.reserved;
+  if (avail < qty) return false;
+  e.reserved += qty;
+  return true;
+}
+function invReleaseReserve(inv, skuId, qty) {
+  const e = invGet(inv, skuId);
+  e.reserved = Math.max(0, e.reserved - qty);
+}
+function invConsumeReserved(inv, skuId, qty) {
+  const e = invGet(inv, skuId);
+  const take = Math.min(qty, e.reserved, e.onHand);
+  e.onHand -= take;
+  e.reserved -= take;
+  return take;
+}
+function invAdd(inv, skuId, qty) {
+  invGet(inv, skuId).onHand += qty;
+}
+function invRemoveAvailable(inv, skuId, qty) {
+  const e = invGet(inv, skuId);
+  const take = Math.min(qty, e.onHand - e.reserved);
+  e.onHand -= take;
+  return take;
+}
+
+/* ===================== BUILDINGS ===================== */
+function createBuilding(type, hex) {
+  const id = "B" + (state.nextBuildingId++);
+  const def = BUILDINGS[type];
+  const b = {
+    id, type, q: hex.q, r: hex.r,
+    level: 1, active: true,
+    blockReason: null,
+    inputBuf: [], // cargo batches
+    outputBuf: [],
+    processAcc: 0,
+    inv: emptyInv(),
+    mediaOccupied: 0, // pallet equivalents for storage / buffer
+    stats: { processed: 0, throughput: 0 },
+  };
+
+  if (type === "RECEIVING" || type === "SORTING") {
+    b.bufferCap = type === "RECEIVING" ? CFG.receivingCap : CFG.sortingCap;
+    b.rate = type === "RECEIVING" ? CFG.receivingRate : CFG.sortingRate;
+  }
+  if (type === "PALLET_STORAGE") {
+    b.storageCap = CFG.storageCap;
+    b.inRate = CFG.storageInRate;
+    b.outRate = CFG.storageOutRate;
+    b.inAcc = 0; b.outAcc = 0;
+    b.policy = {
+      grades: ["A","B","C"],
+      sizes: ["S","M"],
+      preferGrade: null,
+      hardEnv: true,
+    };
+  }
+  if (PICK_TYPES.includes(type)) {
+    b.pickRate = def.pickRate;
+    b.maxSkuSlots = def.maxSkuSlots;
+    b.maxUnits = def.maxUnits;
+    b.replenRate = def.replenRate;
+    b.pickAcc = 0;
+    b.replenAcc = 0;
+    b.pickQueue = []; // {orderId, skuId, qty, remaining}
+    b.policy = {
+      mode: "Prefer A", // Only A | Prefer A | Automatic
+      grades: ["A","B","C"],
+      sizes: type === "PALLET_PICKING" ? ["S","M"] : ["S","M"],
+      slotShareA: 0.8,
+      strategy: "Highest demand",
+      autoReplen: true,
+    };
+  }
+  if (type === "PACKING") {
+    b.rate = CFG.packingRate;
+    b.bufferCap = CFG.packingBuf;
+    b.packQueue = []; // orders waiting for pack
+  }
+  if (type === "EXPEDITION") {
+    b.rate = CFG.expeditionRate;
+    b.bufferCap = CFG.expeditionBuf;
+    b.dispatchQueue = [];
+  }
+
+  state.buildings.set(id, b);
+  hex.buildingId = id;
+  return b;
+}
+
+function placeSkyport() {
+  const hex = state.hexes.get("0,0");
+  const id = "SKYPORT";
+  const b = {
+    id, type: "SKYPORT", q: 0, r: 0, level: 1, active: true,
+    blockReason: null,
+    rate: CFG.skyportRate,
+    acc: 0,
+    pending: [], // waiting batches when receiving full
+    inputBuf: [], outputBuf: [],
+    inv: emptyInv(),
+    mediaOccupied: 0,
+    stats: { processed: 0 },
+  };
+  state.buildings.set(id, b);
+  hex.buildingId = id;
+  hex.buildable = false;
+  state.skyport = b;
+}
+
+function buildingsOfType(type) {
+  return [...state.buildings.values()].filter(b => b.type === type);
+}
+function buildingAt(q, r) {
+  const h = state.hexes.get(hexKey(q,r));
+  return h && h.buildingId ? state.buildings.get(h.buildingId) : null;
+}
+
+/* ===================== CARGO ===================== */
+function makeBatch(skuId, quantity, mediaType, stateName, routingClass) {
+  const sku = skuById(skuId);
+  const ppc = piecesFor(sku);
+  return {
+    skuId, quantity, mediaType,
+    mediaEquivalent: quantity / ppc,
+    state: stateName,
+    routingClass: routingClass || sku.grade,
+    reservedFor: null,
+  };
+}
+
+/* ===================== PATHFINDING ===================== */
+function isPassThrough(hex, from, to) {
+  // Can travel through hex: passable; if has building, travel along edges (still allowed)
+  if (!hex || !hex.passable) return false;
+  return true;
+}
+
+function findPath(fromQ, fromR, toQ, toR) {
+  const start = hexKey(fromQ, fromR);
+  const goal = hexKey(toQ, toR);
+  if (start === goal) return [{q:fromQ,r:fromR}];
+
+  const open = [{q:fromQ,r:fromR, f:0}];
+  const came = new Map();
+  const gScore = new Map([[start, 0]]);
+  const closed = new Set();
+
+  while (open.length) {
+    open.sort((a,b) => a.f - b.f);
+    const cur = open.shift();
+    const ck = hexKey(cur.q, cur.r);
+    if (ck === goal) {
+      const path = [{q:cur.q,r:cur.r}];
+      let k = ck;
+      while (came.has(k)) {
+        k = came.get(k);
+        const p = parseKey(k);
+        path.push(p);
+      }
+      path.reverse();
+      return path;
+    }
+    if (closed.has(ck)) continue;
+    closed.add(ck);
+
+    for (const n of hexNeighbors(cur.q, cur.r)) {
+      const nk = hexKey(n.q, n.r);
+      const hex = state.hexes.get(nk);
+      if (!hex || !hex.passable) continue;
+      // Prefer edge travel around buildings: slight cost if occupied (not start/goal)
+      let step = 1;
+      if (hex.buildingId && nk !== start && nk !== goal) step = 1.35;
+      const tg = (gScore.get(ck) || 0) + step;
+      if (tg < (gScore.get(nk) ?? Infinity)) {
+        came.set(nk, ck);
+        gScore.set(nk, tg);
+        const f = tg + hexDist(n, {q:toQ,r:toR});
+        open.push({q:n.q, r:n.r, f});
+      }
+    }
+  }
+  return null;
+}
+
+function startTransport(batch, fromB, toB, onArrive) {
+  const path = findPath(fromB.q, fromB.r, toB.q, toB.r);
+  if (!path) return false;
+  const dist = Math.max(1, path.length - 1);
+  const travelTime = dist / CFG.truckHexPerSec;
+  state.credits = Math.max(0, state.credits - dist * CFG.truckCostPerHex);
+  state.transports.push({
+    batch, fromId: fromB.id, toId: toB.id,
+    path, progress: 0, travelTime, elapsed: 0, onArrive,
+  });
+  return true;
+}
+
+/* ===================== ENV / COMPAT ===================== */
+function buildingEnv(b) {
+  const h = state.hexes.get(hexKey(b.q, b.r));
+  return { temp: h.temp, radiation: h.radiation, vibration: h.vibration };
+}
+
+function envCompatible(sku, env) {
+  if (sku.traits.includes("HEAT_SENSITIVE") && env.temp > CFG.heatSafeMax) return false;
+  if (sku.traits.includes("COLD_SENSITIVE") && env.temp < CFG.coldSafeMin) return false;
+  if (sku.traits.includes("RADIOACTIVE") && env.radiation > CFG.radSafeMax + 0.5) return false;
+  // RADIOACTIVE goods need low-vibration? skip for MVP hardness on rad storage elsewhere
+  if (sku.traits.includes("FRAGILE") && env.vibration > 0.85) return false;
+  return true;
+}
+
+function storageAccepts(storage, sku, routingClass) {
+  const p = storage.policy;
+  if (!p.sizes.includes(sku.size)) return false;
+  if (!p.grades.includes(routingClass)) return false;
+  if (storage.mediaOccupied >= storage.storageCap - 0.001) return false;
+  const env = buildingEnv(storage);
+  if (p.hardEnv && !envCompatible(sku, env)) return false;
+  return true;
+}
+
+function pickingTechAccepts(pick, sku) {
+  const p = pick.policy;
+  if (!p.sizes.includes(sku.size)) return false;
+  // Hard tech: conveyor/shelf prefer S but allow M for ASRS/pallet
+  if (pick.type === "CONVEYOR_PICKING" && sku.size === "M") return false;
+  if (pick.type === "SHELF_PICKING" && sku.size === "M") return false;
+  return true;
+}
+
+function scoreStorage(storage, fromB, sku, routingClass) {
+  if (!storageAccepts(storage, sku, routingClass)) return Infinity;
+  let score = hexDist(fromB, storage);
+  if (storage.policy.preferGrade && storage.policy.preferGrade === routingClass) score -= 2;
+  const free = 1 - storage.mediaOccupied / storage.storageCap;
+  score -= free * 0.5;
+  const env = buildingEnv(storage);
+  if (sku.traits.includes("HEAT_SENSITIVE") && env.temp < 10) score -= 1.5;
+  return score;
+}
+
+/* ===================== SIM TICK ===================== */
+function weightedSku() {
+  return pickWeighted(
+    state.catalog,
+    state.catalog.map(s => s.demandWeight)
+  );
+}
+
+function tickSkyport(dt) {
+  const sky = state.skyport;
+  sky.acc += sky.rate * dt;
+  while (sky.acc >= 1) {
+    sky.acc -= 1;
+    const sku = weightedSku();
+    const qty = piecesFor(sku);
+    const batch = makeBatch(sku.id, qty, "Pallet", "ARRIVING", sku.grade);
+    sky.pending.push(batch);
+    sky.stats.processed++;
+  }
+  // Try push to Receiving
+  const recs = buildingsOfType("RECEIVING");
+  while (sky.pending.length && recs.length) {
+    // nearest receiving with space
+    let best = null, bestD = Infinity;
+    for (const r of recs) {
+      const used = r.inputBuf.reduce((s,b) => s + b.mediaEquivalent, 0)
+        + r.outputBuf.reduce((s,b) => s + b.mediaEquivalent, 0);
+      if (used >= r.bufferCap - 0.001) continue;
+      const d = hexDist(sky, r);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+    if (!best) { sky.blockReason = "NO_ELIGIBLE_DESTINATION"; break; }
+    const batch = sky.pending.shift();
+    // instantaneous handoff into receiving input (short "dock") — still truck for distance > 0
+    if (best.q === sky.q && best.r === sky.r) {
+      best.inputBuf.push(batch);
+    } else {
+      const ok = startTransport(batch, sky, best, (b) => {
+        const dest = state.buildings.get(best.id);
+        if (!dest) return;
+        dest.inputBuf.push(b);
+      });
+      if (!ok) { sky.pending.unshift(batch); sky.blockReason = "TRANSPORT_WAIT"; break; }
+    }
+    sky.blockReason = null;
+  }
+  if (sky.pending.length) sky.blockReason = sky.blockReason || "OUTPUT_FULL";
+  else if (!recs.length) sky.blockReason = "NO_ELIGIBLE_DESTINATION";
+  else sky.blockReason = null;
+}
+
+function bufMedia(buf) {
+  return buf.reduce((s, b) => s + b.mediaEquivalent, 0);
+}
+
+function tickReceiving(b, dt) {
+  // process input -> output RECEIVED
+  const used = bufMedia(b.inputBuf) + bufMedia(b.outputBuf);
+  if (used >= b.bufferCap) b.blockReason = "INPUT_FULL";
+  b.processAcc += b.rate * dt;
+  while (b.processAcc >= 1 && b.inputBuf.length) {
+    if (bufMedia(b.outputBuf) >= b.bufferCap) { b.blockReason = "OUTPUT_FULL"; break; }
+    b.processAcc -= 1;
+    const batch = b.inputBuf.shift();
+    batch.state = "RECEIVED";
+    b.outputBuf.push(batch);
+    b.stats.processed++;
+    b.blockReason = null;
+  }
+  if (!b.inputBuf.length && !b.blockReason) b.blockReason = "NO_INPUT";
+
+  // push to sorting
+  const sorts = buildingsOfType("SORTING");
+  while (b.outputBuf.length && sorts.length) {
+    let best = null, bestD = Infinity;
+    for (const s of sorts) {
+      if (bufMedia(s.inputBuf) + bufMedia(s.outputBuf) >= s.bufferCap - 0.001) continue;
+      const d = hexDist(b, s);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    if (!best) { b.blockReason = "NO_ELIGIBLE_DESTINATION"; break; }
+    const batch = b.outputBuf.shift();
+    const ok = startTransport(batch, b, best, (bat) => {
+      const dest = state.buildings.get(best.id);
+      if (dest) dest.inputBuf.push(bat);
+    });
+    if (!ok) { b.outputBuf.unshift(batch); break; }
+  }
+}
+
+function tickSorting(b, dt) {
+  b.processAcc += b.rate * dt;
+  while (b.processAcc >= 1 && b.inputBuf.length) {
+    if (bufMedia(b.outputBuf) >= b.bufferCap) { b.blockReason = "OUTPUT_FULL"; break; }
+    b.processAcc -= 1;
+    const batch = b.inputBuf.shift();
+    const sku = skuById(batch.skuId);
+    let routingClass = sku.grade;
+    if (rng() < CFG.misrouteProbability) {
+      const others = GRADES.filter(g => g !== sku.grade);
+      routingClass = others[Math.floor(rng() * others.length)];
+    }
+    batch.routingClass = routingClass;
+    batch.state = "CLASSIFIED";
+    b.outputBuf.push(batch);
+    b.stats.processed++;
+    b.blockReason = null;
+  }
+  if (!b.inputBuf.length && !b.blockReason) b.blockReason = "NO_INPUT";
+
+  while (b.outputBuf.length) {
+    const batch = b.outputBuf[0];
+    const sku = skuById(batch.skuId);
+    const storages = buildingsOfType("PALLET_STORAGE");
+    let best = null, bestScore = Infinity;
+    for (const s of storages) {
+      // reserve space check: mediaOccupied + inbound transports approx
+      const sc = scoreStorage(s, b, sku, batch.routingClass);
+      if (sc < bestScore) { bestScore = sc; best = s; }
+    }
+    if (!best || bestScore === Infinity) { b.blockReason = "NO_ELIGIBLE_DESTINATION"; break; }
+    // capacity reservation
+    if (best.mediaOccupied + batch.mediaEquivalent > best.storageCap) {
+      b.blockReason = "NO_ELIGIBLE_DESTINATION";
+      break;
+    }
+    best.mediaOccupied += batch.mediaEquivalent; // reserve capacity during transport
+    const batchOut = b.outputBuf.shift();
+    const destId = best.id;
+    const ok = startTransport(batchOut, b, best, (bat) => {
+      const dest = state.buildings.get(destId);
+      if (!dest) return;
+      bat.state = "STORED";
+      invAdd(dest.inv, bat.skuId, bat.quantity);
+      // mediaOccupied already reserved
+    });
+    if (!ok) {
+      best.mediaOccupied -= batchOut.mediaEquivalent;
+      b.outputBuf.unshift(batchOut);
+      break;
+    }
+  }
+}
+
+function tickStorage(b, dt) {
+  // Storage holds inventory; outbound via replenishment pulls
+  const occ = b.mediaOccupied;
+  const freePct = 1 - occ / b.storageCap;
+  if (freePct <= 0) b.blockReason = "INPUT_FULL";
+  else b.blockReason = null;
+}
+
+function countPickingLoad(pick) {
+  return pick.pickQueue.reduce((s, j) => s + j.remaining, 0);
+}
+
+function etaPicking(pick, qty) {
+  const load = countPickingLoad(pick);
+  return (load + qty) / Math.max(0.001, pick.pickRate);
+}
+
+function tickPicking(b, dt) {
+  // Process pick queue
+  if (!b.pickQueue.length) {
+    if (!b.blockReason) b.blockReason = "NO_INPUT";
+  }
+  b.pickAcc += b.pickRate * dt;
+  while (b.pickAcc >= 1 && b.pickQueue.length) {
+    const job = b.pickQueue[0];
+    const avail = invAvailable(b.inv, job.skuId) + (invGet(b.inv, job.skuId).reserved > 0 ? 0 : 0);
+    // Must consume from reserved
+    const e = invGet(b.inv, job.skuId);
+    if (e.reserved < 1 || e.onHand < 1) {
+      b.blockReason = "NO_AVAILABLE_STOCK";
+      break;
+    }
+    b.pickAcc -= 1;
+    invConsumeReserved(b.inv, job.skuId, 1);
+    job.remaining -= 1;
+    state.stats.picksAccum += 1;
+    b.stats.processed++;
+    b.blockReason = null;
+
+    if (job.remaining <= 0) {
+      b.pickQueue.shift();
+      const order = state.orders.find(o => o.id === job.orderId);
+      if (order) {
+        order.status = "PICKED";
+        order.pickedAt = state.time;
+        state.stats.ordersPicked++;
+        // send to packing
+        enqueuePacking(order);
+      }
+    }
+  }
+
+  // Auto replenishment for slotted SKUs below reorder
+  if (b.policy.autoReplen) {
+    b.replenAcc += b.replenRate * dt;
+    tryReplenish(b);
+  }
+}
+
+function pickingHasSlotFor(pick, skuId) {
+  if (pick.inv.has(skuId)) {
+    const e = pick.inv.get(skuId);
+    if (e.onHand > 0 || e.incoming > 0 || e.reserved > 0) return true;
+  }
+  return invActiveSkus(pick.inv) < pick.maxSkuSlots;
+}
+
+function canSlotSku(pick, sku) {
+  if (!pickingTechAccepts(pick, sku)) return false;
+  const p = pick.policy;
+  if (p.mode === "Only A" && sku.grade !== "A") return false;
+  if (!p.grades.includes(sku.grade)) return false;
+  return pickingHasSlotFor(pick, sku.id);
+}
+
+function tryReplenish(pick) {
+  // Find SKUs in storage that fit policy and need stock
+  const storages = buildingsOfType("PALLET_STORAGE");
+  if (!storages.length) return;
+
+  // Priority: existing slots below reorder, then new high-demand
+  const candidates = [];
+  for (const [skuId, e] of pick.inv) {
+    if (e.onHand + e.incoming < 20) {
+      const sku = skuById(skuId);
+      if (sku) candidates.push({ sku, priority: 100 + sku.demandWeight });
+    }
+  }
+  if (invActiveSkus(pick.inv) < pick.maxSkuSlots) {
+    // add high demand SKUs not yet slotted
+    const sorted = [...state.catalog].sort((a,b) => b.demandWeight - a.demandWeight);
+    let added = 0;
+    for (const sku of sorted) {
+      if (added > 8) break;
+      if (pick.inv.has(sku.id) && (pick.inv.get(sku.id).onHand || pick.inv.get(sku.id).incoming)) continue;
+      if (!canSlotSku(pick, sku)) continue;
+      // Prefer A share
+      if (pick.policy.mode === "Prefer A" || pick.policy.strategy === "Highest demand") {
+        const active = [...pick.inv.entries()].filter(([,e]) => e.onHand || e.incoming || e.reserved);
+        const aCount = active.filter(([id]) => skuById(id)?.grade === "A").length;
+        if (sku.grade !== "A" && active.length > 0 && aCount / Math.max(1, pick.maxSkuSlots) < pick.policy.slotShareA - 0.05) {
+          // still allow if no A available in storage
+        } else if (sku.grade !== "A" && aCount < pick.policy.slotShareA * Math.min(pick.maxSkuSlots, active.length + 1)) {
+          // skip non-A while A share unmet — soft
+          if (rng() > 0.35) continue;
+        }
+      }
+      candidates.push({ sku, priority: sku.demandWeight });
+      added++;
+    }
+  }
+  candidates.sort((a,b) => b.priority - a.priority);
+
+  while (pick.replenAcc >= 1 && candidates.length) {
+    const { sku } = candidates.shift();
+    if (invUnits(pick.inv) >= pick.maxUnits) { pick.blockReason = "INPUT_FULL"; break; }
+    if (!pickingHasSlotFor(pick, sku.id)) continue;
+
+    let source = null;
+    let avail = 0;
+    for (const st of storages) {
+      const a = invAvailable(st.inv, sku.id);
+      if (a > avail) { avail = a; source = st; }
+    }
+    if (!source || avail < 1) continue;
+
+    const want = Math.min(
+      Math.floor(piecesFor(sku)), // one pallet worth
+      avail,
+      pick.maxUnits - invUnits(pick.inv)
+    );
+    if (want < 1) continue;
+
+    if (!invReserve(source.inv, sku.id, want)) continue;
+    source.mediaOccupied = Math.max(0, source.mediaOccupied - want / piecesFor(sku));
+    // physically remove for transport
+    invConsumeReserved(source.inv, sku.id, want); // leaves storage
+    // wait — consumeReserved removes; for transport we need pieces in flight
+    // Fix: we already consumed. Put into transport batch.
+    // Actually consumeReserved both decreases onHand and reserved. Good for leaving storage.
+    // But we reserved then consumed — correct.
+
+    invGet(pick.inv, sku.id).incoming += want;
+    pick.replenAcc -= 1;
+    const batch = makeBatch(sku.id, want, "Pallet", "ALLOCATED_TO_PICKING", sku.grade);
+    const pickId = pick.id;
+    const ok = startTransport(batch, source, pick, (bat) => {
+      const dest = state.buildings.get(pickId);
+      if (!dest) return;
+      const e = invGet(dest.inv, bat.skuId);
+      e.incoming = Math.max(0, e.incoming - bat.quantity);
+      e.onHand += bat.quantity;
+    });
+    if (!ok) {
+      // rollback
+      invAdd(source.inv, sku.id, want);
+      source.mediaOccupied += want / piecesFor(sku);
+      invGet(pick.inv, sku.id).incoming -= want;
+      pick.replenAcc += 1;
+      break;
+    }
+  }
+}
+
+function enqueuePacking(order) {
+  const packs = buildingsOfType("PACKING");
+  if (!packs.length) {
+    order.status = "PICKED";
+    order.waitPack = true;
+    return;
+  }
+  let best = packs[0];
+  for (const p of packs) {
+    if ((p.packQueue?.length || 0) < (best.packQueue?.length || 0)) best = p;
+  }
+  order.status = "PACKING";
+  best.packQueue.push(order.id);
+}
+
+function tickPacking(b, dt) {
+  // Also pull waiting picked orders
+  for (const o of state.orders) {
+    if (o.waitPack && o.status === "PICKED") {
+      b.packQueue.push(o.id);
+      o.waitPack = false;
+      o.status = "PACKING";
+    }
+  }
+  b.processAcc += b.rate * dt;
+  while (b.processAcc >= 1 && b.packQueue.length) {
+    const exps = buildingsOfType("EXPEDITION");
+    if (!exps.length) { b.blockReason = "NO_ELIGIBLE_DESTINATION"; break; }
+    let exp = exps[0];
+    for (const e of exps) {
+      if (e.dispatchQueue.length < exp.dispatchQueue.length) exp = e;
+    }
+    if (exp.dispatchQueue.length >= exp.bufferCap) { b.blockReason = "OUTPUT_FULL"; break; }
+
+    b.processAcc -= 1;
+    const oid = b.packQueue.shift();
+    const order = state.orders.find(o => o.id === oid);
+    if (!order) continue;
+    order.status = "PACKED";
+    order.packedAt = state.time;
+    exp.dispatchQueue.push(oid);
+    b.stats.processed++;
+    b.blockReason = null;
+  }
+  if (!b.packQueue.length && !b.blockReason) b.blockReason = "NO_INPUT";
+}
+
+function tickExpedition(b, dt) {
+  b.processAcc += b.rate * dt;
+  while (b.processAcc >= 1 && b.dispatchQueue.length) {
+    b.processAcc -= 1;
+    const oid = b.dispatchQueue.shift();
+    const order = state.orders.find(o => o.id === oid);
+    if (!order) continue;
+    order.status = "DISPATCHED";
+    order.dispatchedAt = state.time;
+    state.stats.ordersDispatched++;
+    const onTime = order.dispatchedAt <= order.deadline;
+    if (onTime) {
+      state.stats.onTime++;
+      state.credits += CFG.creditPerOrder + (order.sku.grade === "A" ? 10 : 0);
+      state.reputation = Math.min(100, state.reputation + 0.05);
+    } else {
+      state.stats.late++;
+      state.credits -= CFG.latePenalty;
+      state.reputation = Math.max(0, state.reputation - 0.8);
+    }
+    order.onTime = onTime;
+    b.stats.processed++;
+    b.blockReason = null;
+  }
+  if (!b.dispatchQueue.length) b.blockReason = "NO_INPUT";
+}
+
+function tickTransports(dt) {
+  const remain = [];
+  for (const t of state.transports) {
+    t.elapsed += dt;
+    t.progress = Math.min(1, t.elapsed / t.travelTime);
+    if (t.progress >= 1) {
+      if (t.onArrive) t.onArrive(t.batch);
+    } else {
+      remain.push(t);
+    }
+  }
+  state.transports = remain;
+}
+
+/* ===================== ORDERS / RESERVATION ===================== */
+function createOrder() {
+  const sku = weightedSku();
+  const qty = 1 + Math.floor(rng() * 3);
+  const order = {
+    id: "O" + (state.nextOrderId++),
+    skuId: sku.id,
+    sku,
+    quantity: qty,
+    createdAt: state.time,
+    deadline: state.time + CFG.orderDeadline,
+    status: "CREATED",
+    pickBuildingId: null,
+    onTime: null,
+    waitPack: false,
+  };
+  state.orders.push(order);
+  state.stats.ordersReceived++;
+  reserveOrder(order);
+}
+
+function reserveOrder(order) {
+  order.status = "SEARCHING";
+  const sku = order.sku;
+  const picks = PICK_TYPES.flatMap(t => buildingsOfType(t))
+    .filter(p => pickingTechAccepts(p, sku));
+
+  // Candidates with available stock
+  const withStock = [];
+  for (const p of picks) {
+    const avail = invAvailable(p.inv, sku.id);
+    if (avail >= order.quantity) {
+      withStock.push({ pick: p, eta: etaPicking(p, order.quantity) });
+    }
+  }
+  withStock.sort((a,b) => a.eta - b.eta);
+
+  if (withStock.length) {
+    const { pick } = withStock[0];
+    if (invReserve(pick.inv, sku.id, order.quantity)) {
+      order.status = "PICKING";
+      order.pickBuildingId = pick.id;
+      pick.pickQueue.push({
+        orderId: order.id, skuId: sku.id,
+        qty: order.quantity, remaining: order.quantity,
+      });
+      return;
+    }
+  }
+
+  // Fallback: storage replenishment then pick
+  const storages = buildingsOfType("PALLET_STORAGE");
+  let source = null, avail = 0;
+  for (const st of storages) {
+    const a = invAvailable(st.inv, sku.id);
+    if (a > avail) { avail = a; source = st; }
+  }
+
+  // Choose a pick that can slot this SKU
+  const slotable = picks.filter(p => canSlotSku(p, sku) && invUnits(p.inv) + order.quantity <= p.maxUnits);
+  if (source && avail >= order.quantity && slotable.length) {
+    slotable.sort((a,b) => etaPicking(a, order.quantity) - etaPicking(b, order.quantity));
+    const pick = slotable[0];
+    if (invReserve(source.inv, sku.id, order.quantity)) {
+      order.status = "RESERVED_STORAGE_WAITING_REPLENISHMENT";
+      order.pickBuildingId = pick.id;
+      // consume from storage into transport
+      invConsumeReserved(source.inv, sku.id, order.quantity);
+      source.mediaOccupied = Math.max(0, source.mediaOccupied - order.quantity / piecesFor(sku));
+      invGet(pick.inv, sku.id).incoming += order.quantity;
+      const batch = makeBatch(sku.id, order.quantity, "Pallet", "ALLOCATED_TO_PICKING", sku.grade);
+      const pickId = pick.id;
+      const oid = order.id;
+      startTransport(batch, source, pick, (bat) => {
+        const dest = state.buildings.get(pickId);
+        if (!dest) return;
+        const e = invGet(dest.inv, bat.skuId);
+        e.incoming = Math.max(0, e.incoming - bat.quantity);
+        e.onHand += bat.quantity;
+        // reserve for order
+        if (invReserve(dest.inv, bat.skuId, bat.quantity)) {
+          const o = state.orders.find(x => x.id === oid);
+          if (o && (o.status === "RESERVED_STORAGE_WAITING_REPLENISHMENT" || o.status === "SEARCHING")) {
+            o.status = "PICKING";
+            dest.pickQueue.push({
+              orderId: o.id, skuId: bat.skuId,
+              qty: bat.quantity, remaining: bat.quantity,
+            });
+          } else {
+            invReleaseReserve(dest.inv, bat.skuId, bat.quantity);
+          }
+        }
+      });
+      return;
+    }
+  }
+
+  order.status = "BACKORDER";
+}
+
+function retryBackorders() {
+  for (const o of state.orders) {
+    if (o.status === "BACKORDER") reserveOrder(o);
+  }
+}
+
+let orderAcc = 0;
+let lastBackorderRetry = -1;
+function tickOrders(dt) {
+  // ramp demand
+  const ramp = Math.min(1, state.time / 180);
+  const rate = CFG.orderRate * (0.35 + 0.65 * ramp);
+  orderAcc += rate * dt;
+  while (orderAcc >= 1) {
+    orderAcc -= 1;
+    createOrder();
+  }
+  const tSec = Math.floor(state.time);
+  if (tSec !== lastBackorderRetry && tSec % 5 === 0) {
+    lastBackorderRetry = tSec;
+    retryBackorders();
+  }
+}
+
+function simStep(dt) {
+  tickTransports(dt);
+  tickSkyport(dt);
+  for (const b of state.buildings.values()) {
+    switch (b.type) {
+      case "RECEIVING": tickReceiving(b, dt); break;
+      case "SORTING": tickSorting(b, dt); break;
+      case "PALLET_STORAGE": tickStorage(b, dt); break;
+      case "PALLET_PICKING":
+      case "SHELF_PICKING":
+      case "CONVEYOR_PICKING":
+      case "ASRS_PICKING": tickPicking(b, dt); break;
+      case "PACKING": tickPacking(b, dt); break;
+      case "EXPEDITION": tickExpedition(b, dt); break;
+    }
+  }
+  tickOrders(dt);
+  state.time += dt;
+
+  // prune old dispatched orders (keep last 80)
+  const live = state.orders.filter(o => o.status !== "DISPATCHED");
+  const done = state.orders.filter(o => o.status === "DISPATCHED").slice(-40);
+  state.orders = live.concat(done);
+}
+
+/* ===================== KPI ===================== */
+function demandCoverage() {
+  const slotted = new Set();
+  for (const t of PICK_TYPES) {
+    for (const p of buildingsOfType(t)) {
+      for (const [skuId, e] of p.inv) {
+        if (e.onHand > 0 || e.incoming > 0) slotted.add(skuId);
+      }
+    }
+  }
+  let w = 0;
+  for (const id of slotted) {
+    const s = skuById(id);
+    if (s) w += s.demandWeight;
+  }
+  return state.demandTotal > 0 ? w / state.demandTotal : 0;
+}
+
+function immediateFillRate() {
+  // estimate: share of recent orders that reserved in picking immediately
+  const recent = state.orders.slice(-40);
+  if (!recent.length) return 0;
+  const ok = recent.filter(o =>
+    o.status === "PICKING" || o.status === "PICKED" || o.status === "PACKING" ||
+    o.status === "PACKED" || o.status === "DISPATCHED"
+  ).length;
+  return ok / recent.length;
+}
+
+function storageOccupancy() {
+  const storages = buildingsOfType("PALLET_STORAGE");
+  if (!storages.length) return 0;
+  let used = 0, cap = 0;
+  for (const s of storages) { used += s.mediaOccupied; cap += s.storageCap; }
+  return cap ? used / cap : 0;
+}
+
+function effectivePicksPerSec() {
+  // approximate from last few seconds via accum delta tracked in render
+  return ui.picksRate;
+}
+
+/* ===================== UI / RENDER ===================== */
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+const ui = {
+  hexSizeBase: 28,
+  scale: 1,
+  origin: {x: 0, y: 0},
+  viewReady: false,
+  hover: null,
+  drag: null,
+  picksRate: 0,
+  lastPicks: 0,
+  lastPicksTime: 0,
+};
+
+Object.defineProperty(ui, "hexSize", {
+  get() { return ui.hexSizeBase * ui.scale; },
+});
+
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  if (!ui.viewReady) {
+    ui.origin = { x: rect.width / 2, y: rect.height / 2 };
+    ui.viewReady = true;
+  }
+}
+window.addEventListener("resize", resize);
+
+function clearBuildMode() {
+  state.buildMode = null;
+  document.getElementById("sel-label").textContent = "";
+  updateBuildList();
+}
+
+function clearMapSelection() {
+  clearBuildMode();
+  state.selected = null;
+  detailHTML();
+}
+
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    sx: e.clientX - rect.left,
+    sy: e.clientY - rect.top,
+    wx: e.clientX - rect.left - ui.origin.x,
+    wy: e.clientY - rect.top - ui.origin.y,
+  };
+}
+
+function hexAtEvent(e) {
+  const { wx, wy } = canvasPoint(e);
+  const h = pixelToAxial(wx, wy, ui.hexSize);
+  return state.hexes.has(hexKey(h.q, h.r)) ? h : null;
+}
+
+function zoomAt(sx, sy, nextScale) {
+  const clamped = Math.max(0.35, Math.min(3.5, nextScale));
+  if (clamped === ui.scale) return;
+  const wx = sx - ui.origin.x;
+  const wy = sy - ui.origin.y;
+  const ratio = clamped / ui.scale;
+  ui.origin.x = sx - wx * ratio;
+  ui.origin.y = sy - wy * ratio;
+  ui.scale = clamped;
+}
+
+function capacityColor(freePct) {
+  if (freePct > 0.20) return "#4adf7a";
+  if (freePct > 0.07) return "#f0a050";
+  if (freePct > 0) return "#ff5a6a";
+  return "#ff5a6a";
+}
+
+function freeCapacity(b) {
+  if (!b) return 1;
+  if (b.type === "PALLET_STORAGE") return 1 - b.mediaOccupied / b.storageCap;
+  if (b.type === "RECEIVING" || b.type === "SORTING") {
+    return 1 - (bufMedia(b.inputBuf) + bufMedia(b.outputBuf)) / b.bufferCap;
+  }
+  if (PICK_TYPES.includes(b.type)) {
+    return 1 - invUnits(b.inv) / b.maxUnits;
+  }
+  if (b.type === "PACKING") return 1 - (b.packQueue.length / b.bufferCap);
+  if (b.type === "EXPEDITION") return 1 - (b.dispatchQueue.length / b.bufferCap);
+  if (b.type === "SKYPORT") return b.pending.length ? Math.max(0, 1 - b.pending.length / 50) : 1;
+  return 1;
+}
+
+function drawHex(h, fill, stroke, cx, cy, size) {
+  const pts = hexCorners(cx, cy, size);
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < 6; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+}
+
+function overlayColor(h) {
+  if (ui.overlay === "temperature") {
+    const t = (h.temp + 10) / 40;
+    return `rgba(${Math.floor(40+t*200)}, ${Math.floor(100-t*40)}, ${Math.floor(200-t*180)}, 0.55)`;
+  }
+  if (ui.overlay === "radiation") {
+    const t = Math.min(1, h.radiation);
+    return `rgba(${Math.floor(80+t*175)}, ${Math.floor(200-t*160)}, 60, 0.5)`;
+  }
+  if (ui.overlay === "vibration") {
+    const t = Math.min(1, h.vibration);
+    return `rgba(80, ${Math.floor(120+t*100)}, ${Math.floor(200-t*80)}, 0.45)`;
+  }
+  return null;
+}
+
+function render() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  // transports under hexes glow
+  for (const t of state.transports) {
+    const i = Math.min(t.path.length - 1, Math.floor(t.progress * (t.path.length - 1)));
+    const j = Math.min(t.path.length - 1, i + 1);
+    const local = t.progress * (t.path.length - 1) - i;
+    const a = axialToPixel(t.path[i].q, t.path[i].r, ui.hexSize);
+    const b = axialToPixel(t.path[j].q, t.path[j].r, ui.hexSize);
+    const x = ui.origin.x + a.x + (b.x - a.x) * local;
+    const y = ui.origin.y + a.y + (b.y - a.y) * local;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#f0d060";
+    ctx.fill();
+  }
+
+  for (const h of state.hexes.values()) {
+    const p = axialToPixel(h.q, h.r, ui.hexSize);
+    const cx = ui.origin.x + p.x;
+    const cy = ui.origin.y + p.y;
+    let fill = h.buildable ? "#142018" : "#10141a";
+    if (!h.buildable) fill = "#0e1218";
+    const isSel = state.selected && state.selected.q === h.q && state.selected.r === h.r;
+    const isHov = ui.hover && ui.hover.q === h.q && ui.hover.r === h.r;
+    if (isHov) fill = "#1a2838";
+    if (isSel) fill = "#1c3040";
+
+    drawHex(h, fill, isSel ? "#3de0c0" : "#2a3a50", cx, cy, ui.hexSize - 1);
+
+    // overlay
+    if (ui.overlay !== "none" && (ui.overlay !== "occupancy" || h.buildingId)) {
+      const pts = hexCorners(cx, cy, ui.hexSize - 1);
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < 6; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.closePath();
+      let col = null;
+      if (ui.overlay === "temperature") {
+        const t = Math.max(0, Math.min(1, (h.temp + 10) / 40));
+        col = `rgba(${Math.floor(50 + t * 200)}, ${Math.floor(140 - t * 80)}, ${Math.floor(220 - t * 180)}, 0.45)`;
+      } else if (ui.overlay === "radiation") {
+        const t = Math.min(1, h.radiation / 1.2);
+        col = `rgba(${Math.floor(100 + t * 155)}, ${Math.floor(220 - t * 180)}, 40, 0.4)`;
+      } else if (ui.overlay === "vibration") {
+        const t = Math.min(1, h.vibration);
+        col = `rgba(60, ${Math.floor(100 + t * 120)}, 180, 0.4)`;
+      } else if (ui.overlay === "occupancy" && h.buildingId) {
+        const free = freeCapacity(state.buildings.get(h.buildingId));
+        const used = 1 - free;
+        col = `rgba(${Math.floor(40 + used * 200)}, ${Math.floor(200 - used * 160)}, 80, 0.45)`;
+      }
+      if (col) { ctx.fillStyle = col; ctx.fill(); }
+    }
+
+    if (h.buildingId) {
+      const b = state.buildings.get(h.buildingId);
+      const def = b.type === "SKYPORT"
+        ? { icon: "◎", color: "#5b9dff", name: "Skyport" }
+        : BUILDINGS[b.type];
+      ctx.fillStyle = def.color;
+      ctx.font = "bold 16px IBM Plex Sans, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(def.icon, cx, cy - 4);
+
+      // capacity indicator
+      const free = freeCapacity(b);
+      const col = capacityColor(free);
+      ctx.beginPath();
+      ctx.arc(cx, cy + ui.hexSize * 0.55, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = col;
+      if (free <= 0 && Math.floor(state.time * 4) % 2 === 0) ctx.globalAlpha = 0.35;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // block icon
+      if (b.blockReason && b.blockReason !== "NO_INPUT") {
+        ctx.fillStyle = "#ff5a6a";
+        ctx.font = "10px sans-serif";
+        ctx.fillText("!", cx + 12, cy - 12);
+      }
+    } else if (!h.buildable) {
+      ctx.fillStyle = "#2a3038";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("✕", cx, cy);
+    }
+  }
+
+  // transport paths
+  ctx.strokeStyle = "rgba(240,200,80,0.25)";
+  ctx.lineWidth = 1.5;
+  for (const t of state.transports) {
+    ctx.beginPath();
+    for (let i = 0; i < t.path.length; i++) {
+      const p = axialToPixel(t.path[i].q, t.path[i].r, ui.hexSize);
+      const x = ui.origin.x + p.x, y = ui.origin.y + p.y;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+function updateKPI() {
+  document.getElementById("k-time").textContent = Math.floor(state.time) + "s";
+  document.getElementById("k-credits").textContent = Math.floor(state.credits);
+  document.getElementById("k-orders").textContent =
+    state.stats.ordersReceived + " / " + state.stats.ordersPicked + " / " + state.stats.ordersDispatched;
+  const tot = state.stats.onTime + state.stats.late;
+  document.getElementById("k-ontime").textContent = tot ? Math.round(100 * state.stats.onTime / tot) + "%" : "—";
+  document.getElementById("k-picks").textContent = ui.picksRate.toFixed(1);
+  document.getElementById("k-cov").textContent = Math.round(demandCoverage() * 100) + "%";
+  document.getElementById("k-fill").textContent = Math.round(immediateFillRate() * 100) + "%";
+  document.getElementById("k-bo").textContent = state.orders.filter(o => o.status === "BACKORDER").length;
+  document.getElementById("k-stor").textContent = Math.round(storageOccupancy() * 100) + "%";
+  document.getElementById("k-rep").textContent = state.reputation.toFixed(0);
+}
+
+function detailHTML() {
+  const el = document.getElementById("detail");
+  if (!state.selected) {
+    el.innerHTML = '<div class="muted">Vyber hex nebo budovu.</div>';
+    return;
+  }
+  const h = state.hexes.get(hexKey(state.selected.q, state.selected.r));
+  if (!h) return;
+
+  let html = `<h2>Hex ${h.q},${h.r}</h2>
+    <div class="stat"><span>Teplota</span><span>${h.temp.toFixed(1)} °C</span></div>
+    <div class="stat"><span>Radiace</span><span>${h.radiation.toFixed(2)}</span></div>
+    <div class="stat"><span>Vibrace</span><span>${h.vibration.toFixed(2)}</span></div>
+    <div class="stat"><span>Stavitelné</span><span>${h.buildable && !h.buildingId ? "ano" : "ne"}</span></div>`;
+
+  if (!h.buildingId) {
+    if (state.buildMode && h.buildable) {
+      const def = BUILDINGS[state.buildMode];
+      html += `<div class="panel-block">
+        <div>Stavět: <b>${def.name}</b> (${def.cost} cr)</div>
+        <button class="btn primary" id="btn-place">Postavit</button>
+      </div>`;
+    }
+    el.innerHTML = html;
+    const bp = document.getElementById("btn-place");
+    if (bp) bp.onclick = () => placeSelected();
+    return;
+  }
+
+  const b = state.buildings.get(h.buildingId);
+  const def = b.type === "SKYPORT" ? { name: "Skyport", color: "#5b9dff" } : BUILDINGS[b.type];
+  html += `<h2 style="color:${def.color}">${def.name}</h2>`;
+  if (b.blockReason) html += `<div class="block-reason">${b.blockReason}</div>`;
+
+  if (b.type === "SKYPORT") {
+    html += `<div class="stat"><span>Produkce</span><span>${b.rate} pal/s</span></div>
+      <div class="stat"><span>Čekající</span><span>${b.pending.length}</span></div>
+      <div class="stat"><span>Vygenerováno</span><span>${b.stats.processed}</span></div>`;
+  }
+  if (b.type === "RECEIVING" || b.type === "SORTING") {
+    html += `<div class="stat"><span>Buffer</span><span>${(bufMedia(b.inputBuf)+bufMedia(b.outputBuf)).toFixed(1)} / ${b.bufferCap} pal</span></div>
+      <div class="stat"><span>Rate</span><span>${b.rate} pal/s</span></div>
+      <div class="stat"><span>In / Out</span><span>${b.inputBuf.length} / ${b.outputBuf.length}</span></div>
+      <div class="stat"><span>Processed</span><span>${b.stats.processed}</span></div>`;
+  }
+  if (b.type === "PALLET_STORAGE") {
+    html += `<div class="stat"><span>Occupancy</span><span>${b.mediaOccupied.toFixed(0)} / ${b.storageCap} pal</span></div>
+      <div class="stat"><span>SKU types</span><span>${invActiveSkus(b.inv)}</span></div>
+      <div class="stat"><span>Units</span><span>${invUnits(b.inv)}</span></div>
+      <div class="panel-block"><div class="muted">Policy grades</div>
+      <div class="row">
+        ${GRADES.map(g => `<label class="tag"><input type="checkbox" data-grade="${g}" ${b.policy.grades.includes(g)?"checked":""}/> ${g}</label>`).join("")}
+      </div>
+      <div class="row"><label class="muted">Prefer </label>
+        <select id="pref-grade">
+          <option value="">—</option>
+          ${GRADES.map(g => `<option value="${g}" ${b.policy.preferGrade===g?"selected":""}>${g}</option>`).join("")}
+        </select>
+      </div></div>`;
+  }
+  if (PICK_TYPES.includes(b.type)) {
+    const units = invUnits(b.inv);
+    const slots = invActiveSkus(b.inv);
+    html += `<div class="stat"><span>pickRate</span><span>${b.pickRate} ks/s</span></div>
+      <div class="stat"><span>SKU slots</span><span>${slots} / ${b.maxSkuSlots}</span></div>
+      <div class="stat"><span>Units</span><span>${units} / ${b.maxUnits}</span></div>
+      <div class="stat"><span>Pick queue</span><span>${b.pickQueue.length}</span></div>
+      <div class="stat"><span>Processed</span><span>${b.stats.processed}</span></div>
+      <div class="panel-block">
+        <div class="stat"><span>Slotting</span>
+          <select id="slot-mode">
+            ${["Only A","Prefer A","Automatic"].map(m => `<option ${b.policy.mode===m?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="stat"><span>Strategy</span>
+          <select id="slot-strat">
+            ${["Highest demand","Balanced","Adaptive"].map(m => `<option ${b.policy.strategy===m?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="stat"><span>Auto replen</span>
+          <input type="checkbox" id="auto-replen" ${b.policy.autoReplen?"checked":""}/>
+        </div>
+        <div class="stat"><span>Share A</span>
+          <input type="range" id="share-a" min="0" max="100" value="${Math.round(b.policy.slotShareA*100)}"/>
+          <span id="share-a-v">${Math.round(b.policy.slotShareA*100)}%</span>
+        </div>
+      </div>
+      <h2>Top stock</h2>
+      <div class="scroll-list">${topStockHTML(b.inv, 8)}</div>`;
+  }
+  if (b.type === "PACKING") {
+    html += `<div class="stat"><span>Queue</span><span>${b.packQueue.length}</span></div>
+      <div class="stat"><span>Rate</span><span>${b.rate} ord/s</span></div>`;
+  }
+  if (b.type === "EXPEDITION") {
+    html += `<div class="stat"><span>Queue</span><span>${b.dispatchQueue.length}</span></div>
+      <div class="stat"><span>Rate</span><span>${b.rate} ord/s</span></div>
+      <div class="stat"><span>Dispatched</span><span>${b.stats.processed}</span></div>`;
+  }
+
+  html += `<h2>Recent orders</h2><div class="scroll-list">`;
+  const related = state.orders.filter(o => o.pickBuildingId === b.id || true).slice(-12).reverse();
+  for (const o of related.slice(0, 10)) {
+    html += `<div class="order-row"><span>${o.id} ${o.skuId}×${o.quantity}</span><span class="${o.status==="BACKORDER"?"bad":o.status==="DISPATCHED"?"good":"warn"}">${o.status}</span></div>`;
+  }
+  html += `</div>`;
+
+  el.innerHTML = html;
+  wireDetailControls(b);
+}
+
+function topStockHTML(inv, n) {
+  const rows = [...inv.entries()]
+    .filter(([,e]) => e.onHand || e.incoming)
+    .sort((a,b) => b[1].onHand - a[1].onHand)
+    .slice(0, n);
+  if (!rows.length) return '<div class="muted">Prázdné</div>';
+  return rows.map(([id, e]) => {
+    const s = skuById(id);
+    return `<div class="stat"><span>${id} <span class="tag">${s.grade}</span><span class="tag">${s.size}</span></span>
+      <span>${e.onHand}${e.incoming?` (+${e.incoming})`:""}</span></div>`;
+  }).join("");
+}
+
+function wireDetailControls(b) {
+  if (b.type === "PALLET_STORAGE") {
+    elAll('input[data-grade]').forEach(cb => {
+      cb.onchange = () => {
+        b.policy.grades = elAll('input[data-grade]:checked').map(x => x.dataset.grade);
+      };
+    });
+    const pref = document.getElementById("pref-grade");
+    if (pref) pref.onchange = () => { b.policy.preferGrade = pref.value || null; };
+  }
+  if (PICK_TYPES.includes(b.type)) {
+    const mode = document.getElementById("slot-mode");
+    if (mode) mode.onchange = () => { b.policy.mode = mode.value; };
+    const strat = document.getElementById("slot-strat");
+    if (strat) strat.onchange = () => { b.policy.strategy = strat.value; };
+    const ar = document.getElementById("auto-replen");
+    if (ar) ar.onchange = () => { b.policy.autoReplen = ar.checked; };
+    const sa = document.getElementById("share-a");
+    if (sa) sa.oninput = () => {
+      b.policy.slotShareA = sa.value / 100;
+      document.getElementById("share-a-v").textContent = sa.value + "%";
+    };
+  }
+}
+function elAll(sel) { return [...document.querySelectorAll(sel)]; }
+
+function placeSelected() {
+  if (!state.selected || !state.buildMode) return false;
+  const h = state.hexes.get(hexKey(state.selected.q, state.selected.r));
+  if (!h || !h.buildable || h.buildingId) return false;
+  const def = BUILDINGS[state.buildMode];
+  if (state.credits < def.cost) return false;
+  state.credits -= def.cost;
+  createBuilding(state.buildMode, h);
+  h.buildable = false;
+  clearBuildMode();
+  detailHTML();
+  updateKPI();
+  return true;
+}
+
+function updateBuildList() {
+  const box = document.getElementById("build-list");
+  box.innerHTML = Object.entries(BUILDINGS).map(([type, def]) => `
+    <div class="build-item ${state.buildMode===type?"sel":""}" data-type="${type}">
+      <span style="color:${def.color}">${def.icon} ${def.name}</span>
+      <span class="cost">${def.cost}</span>
+    </div>`).join("");
+  box.querySelectorAll(".build-item").forEach(el => {
+    el.onclick = () => {
+      state.buildMode = state.buildMode === el.dataset.type ? null : el.dataset.type;
+      document.getElementById("sel-label").textContent = state.buildMode
+        ? "Stavba: " + BUILDINGS[state.buildMode].name : "";
+      updateBuildList();
+    };
+  });
+}
+
+function setupOverlays() {
+  const items = [
+    ["none","None"],["temperature","Temp"],["radiation","Rad"],
+    ["vibration","Vib"],["occupancy","Cap"],
+  ];
+  const box = document.getElementById("overlays");
+  box.innerHTML = items.map(([id,l]) =>
+    `<button class="btn ${ui.overlay===id?"active":""}" data-ov="${id}">${l}</button>`
+  ).join("");
+  box.querySelectorAll("button").forEach(btn => {
+    btn.onclick = () => { ui.overlay = btn.dataset.ov; setupOverlays(); };
+  });
+}
+
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+canvas.addEventListener("mousedown", (e) => {
+  if (e.button === 1 || e.button === 2) {
+    e.preventDefault();
+    const p = canvasPoint(e);
+    ui.drag = {
+      button: e.button,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      originX: ui.origin.x,
+      originY: ui.origin.y,
+      scale: ui.scale,
+      sx: p.sx,
+      sy: p.sy,
+      moved: false,
+    };
+  }
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (ui.drag) {
+    const dx = e.clientX - ui.drag.startX;
+    const dy = e.clientY - ui.drag.startY;
+    if (Math.hypot(dx, dy) > 4) ui.drag.moved = true;
+
+    if (ui.drag.button === 1) {
+      // middle: pan
+      ui.origin.x = ui.drag.originX + (e.clientX - ui.drag.startX);
+      ui.origin.y = ui.drag.originY + (e.clientY - ui.drag.startY);
+      canvas.style.cursor = "grabbing";
+    } else if (ui.drag.button === 2) {
+      // right drag: zoom (nahoru = přiblížit)
+      const zoomDy = e.clientY - ui.drag.startY;
+      zoomAt(ui.drag.sx, ui.drag.sy, ui.drag.scale * Math.exp(-zoomDy * 0.006));
+      canvas.style.cursor = "ns-resize";
+    }
+    ui.drag.lastX = e.clientX;
+    ui.drag.lastY = e.clientY;
+    return;
+  }
+
+  const h = hexAtEvent(e);
+  ui.hover = h;
+  canvas.style.cursor = state.buildMode ? "cell" : "crosshair";
+});
+
+window.addEventListener("mouseup", (e) => {
+  if (!ui.drag || ui.drag.button !== e.button) return;
+  const wasDrag = ui.drag;
+  ui.drag = null;
+  canvas.style.cursor = state.buildMode ? "cell" : "crosshair";
+
+  // RMB click without drag → zruš výběr / build mód
+  if (wasDrag.button === 2 && !wasDrag.moved) {
+    clearMapSelection();
+  }
+});
+
+canvas.addEventListener("click", (e) => {
+  if (e.button !== 0) return;
+  const h = hexAtEvent(e);
+  if (!h) return;
+  state.selected = h;
+  if (state.buildMode) {
+    const hex = state.hexes.get(hexKey(h.q, h.r));
+    if (hex.buildable && !hex.buildingId) placeSelected();
+    else detailHTML();
+  } else {
+    detailHTML();
+  }
+});
+
+canvas.addEventListener("auxclick", (e) => {
+  // potlač prostřední tlačítko (autoscroll / open)
+  if (e.button === 1) e.preventDefault();
+});
+
+document.getElementById("btn-pause").onclick = () => {
+  state.paused = !state.paused;
+  document.getElementById("btn-pause").textContent = state.paused ? "Play" : "Pause";
+};
+document.querySelectorAll("[data-speed]").forEach(btn => {
+  btn.onclick = () => {
+    state.speed = Number(btn.dataset.speed);
+    document.querySelectorAll("[data-speed]").forEach(b => b.classList.toggle("active", b === btn));
+  };
+});
+
+document.getElementById("misroute-slider").oninput = (e) => {
+  CFG.misrouteProbability = Number(e.target.value) / 100;
+  document.getElementById("cfg-misroute").textContent = e.target.value;
+};
+document.getElementById("orderrate-slider").oninput = (e) => {
+  CFG.orderRate = Number(e.target.value) / 10;
+  document.getElementById("cfg-orderrate").textContent = CFG.orderRate.toFixed(1);
+};
+
+document.getElementById("btn-reset").onclick = () => resetGame();
+document.getElementById("btn-demo").onclick = () => {
+  resetGame();
+  // place a basic chain around skyport (demo grant — always builds full chain)
+  const plan = [
+    [1, 0, "RECEIVING"],
+    [2, 0, "SORTING"],
+    [3, -1, "PALLET_STORAGE"],
+    [2, -2, "CONVEYOR_PICKING"],
+    [1, -2, "ASRS_PICKING"],
+    [0, -2, "PACKING"],
+    [-1, -1, "EXPEDITION"],
+  ];
+  for (const [q,r,type] of plan) {
+    const h = state.hexes.get(hexKey(q,r));
+    if (!h || h.buildingId) continue;
+    const def = BUILDINGS[type];
+    state.credits = Math.max(0, state.credits - def.cost);
+    createBuilding(type, h);
+    h.buildable = false;
+  }
+  detailHTML();
+  updateKPI();
+};
+
+function resetGame() {
+  rng = mulberry32(42);
+  state.time = 0;
+  state.credits = CFG.startCredits;
+  state.reputation = 100;
+  state.buildings.clear();
+  state.transports = [];
+  state.orders = [];
+  state.replenRequests = [];
+  state.nextBuildingId = 1;
+  state.nextOrderId = 1;
+  state.stats = {
+    ordersReceived: 0, ordersPicked: 0, ordersDispatched: 0,
+    onTime: 0, late: 0, picksAccum: 0, picksWindow: [],
+  };
+  orderAcc = 0;
+  ui.picksRate = 0;
+  ui.lastPicks = 0;
+  makeCatalog();
+  initMap();
+  placeSkyport();
+  state.selected = {q:0,r:0};
+  detailHTML();
+  updateKPI();
+}
+
+/* ===================== LOOP ===================== */
+let last = performance.now();
+let acc = 0;
+const FIXED = 1 / 20; // 20 Hz sim
+
+function frame(now) {
+  const realDt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (!state.paused) {
+    acc += realDt * state.speed;
+    while (acc >= FIXED) {
+      simStep(FIXED);
+      acc -= FIXED;
+    }
+  }
+  // picks/s meter
+  if (now - ui.lastPicksTime > 500) {
+    const dt = (now - ui.lastPicksTime) / 1000;
+    ui.picksRate = (state.stats.picksAccum - ui.lastPicks) / dt / Math.max(0.001, state.speed) * state.speed;
+    // show game-time rate
+    ui.picksRate = (state.stats.picksAccum - ui.lastPicks) / Math.max(0.001, dt * state.speed);
+    ui.lastPicks = state.stats.picksAccum;
+    ui.lastPicksTime = now;
+    updateKPI();
+    if (state.selected) detailHTML();
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+
+updateBuildList();
+setupOverlays();
+resetGame();
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,11 @@
     "description": "Relaxační pixel-art hra v útulné chaloupce. Procházej se, zapal krb, přepínej den a noc a zařizuj interiér nábytkem a svíčkami. Kočka se toulá a spí v pelíšku.",
     "file": "cozy-cottage.html",
     "thumbnail": "screenshot.png",
-    "tags": ["cozy", "pixel-art", "decorating"],
+    "tags": [
+      "cozy",
+      "pixel-art",
+      "decorating"
+    ],
     "status": "prototyp",
     "created": "2026-10-29",
     "controls": "WASD/šipky chůze, E zařizování, N den/noc"
@@ -18,9 +22,144 @@
     "description": "Útulná budovatelská ekonomika v pixel-artu: pěstuj pšenici, chovej slepice, mel mouku a peč chleba. Stav silnice, posílej náklaďáky a hlídej sezónní poptávku městečka.",
     "file": "maly-magnat.html",
     "thumbnail": "screenshot.png",
-    "tags": ["ekonomika", "budovatelská", "tycoon", "logistika", "cozy", "pixel-art", "simulace", "strategie", "single-player", "vanilla-js"],
+    "tags": [
+      "ekonomika",
+      "budovatelská",
+      "tycoon",
+      "logistika",
+      "cozy",
+      "pixel-art",
+      "simulace",
+      "strategie",
+      "single-player",
+      "vanilla-js"
+    ],
     "status": "playable",
     "created": "2026-11-05",
     "controls": "LMB stavba/výběr, tažení silnice, RMB/Esc zrušit, kolečko zoom ke kurzoru, pinch zoom, WASD posun, Space pauza, R silnice, X demolice, T trasy, F finance, 1–5 kategorie"
+  },
+  {
+    "path": "randomshooter/",
+    "slug": "randomshooter",
+    "title": "Random Shooter",
+    "description": "Neonový arcade shooter: mířiš, střílíš, přitahuješ gravitací a vypaluješ laser. Vlny nepřátel včetně léčitelů, tanků a mothership; shop s upgrady a stavbami.",
+    "file": "index.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "arcade",
+      "shooter",
+      "vlny",
+      "upgrades",
+      "vanilla-js"
+    ],
+    "status": "playable",
+    "created": "2026-10-25",
+    "controls": "Myš míření, LMB střelba, RMB gravitace, MMB laser, LMB+RMB rázová vlna, RMB+MMB laserová vlna, CTRL+kolečko zoom"
+  },
+  {
+    "path": "sensible-handball/",
+    "slug": "sensible-handball",
+    "title": "Sensible Handball",
+    "description": "Top-down házená ve stylu Sensible Soccer: běh, dribling, přihrávky na blízko/daleko, střelba a jednoduchá AI. Editor formací a testovací scény.",
+    "file": "index.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "sport",
+      "handball",
+      "2d",
+      "es-modules",
+      "prototyp"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-13",
+    "controls": "Šipky pohyb, Shift sprint, S blízká přihrávka, A vzdálená, D střela/tackle, R restart"
+  },
+  {
+    "path": "pixelplay/",
+    "slug": "pixelplay",
+    "title": "Hex Colony",
+    "description": "Hexová kolonie: stavba, zásoby a průzkum na hex mapě. Ve složce jsou i starší experimenty Pixels a Streets.",
+    "file": "hex-colony.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "hex",
+      "kolonie",
+      "strategie",
+      "pixel",
+      "experiment"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-25",
+    "controls": "LMB výběr/stavba, RMB zrušit, prostřední pan, RMB tažení zoom"
+  },
+  {
+    "path": "pixelzoom/",
+    "slug": "pixelzoom",
+    "title": "Smart Biomes",
+    "description": "Procedurální biomy se spojitým zoomem: pevnina, řeky a biomy drží koherenci napříč měřítky. Starší varianty biomes/biomes2/biomes3 ve složce.",
+    "file": "smartbiomes.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "procedural",
+      "biomes",
+      "zoom",
+      "canvas",
+      "experiment"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-19",
+    "controls": "Tažení pan, kolečko zoom ke kurzoru"
+  },
+  {
+    "path": "topdown-shooter/",
+    "slug": "topdown-shooter",
+    "title": "Topdown Shooter",
+    "description": "Top-down shooter s viditelností a krokovým zvukem. WASD pohyb, myš míření, LMB střelba.",
+    "file": "topdownshooter1.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "shooter",
+      "top-down",
+      "vision",
+      "audio",
+      "experiment"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-20",
+    "controls": "WASD pohyb, myš míření, LMB střelba, R restart"
+  },
+  {
+    "path": "tower-defense/",
+    "slug": "tower-defense",
+    "title": "Hold The Line",
+    "description": "Tower defense / line-hold: kup vojáky, vylepšuj dosah a poškození, spouštěj vlny. Ve složce i hex TD a starší towerdefence2–4.",
+    "file": "holdtheline3.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "tower-defense",
+      "vlny",
+      "strategie",
+      "experiment"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-20",
+    "controls": "UI nákup vojáků/upgradů, tlačítko Další vlna, myš na mapě"
+  },
+  {
+    "path": "train/",
+    "slug": "train",
+    "title": "Vlak",
+    "description": "CRT terminálový vlakový prototyp: jeď, sbírej náklad, restartuj scénu. Iterace vlak1–3 a vlak5.",
+    "file": "vlak5.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "vlak",
+      "crt",
+      "puzzle",
+      "experiment"
+    ],
+    "status": "prototyp",
+    "created": "2026-10-20",
+    "controls": "Šipky/WASD pohyb, R restart"
   }
 ]

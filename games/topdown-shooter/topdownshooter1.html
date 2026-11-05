@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Topdown Shooter 1 — Vision & Sound</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0d1110;
+      color: #e8efe9;
+      cursor: crosshair;
+    }
+
+    #topmenu {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 0.55rem 1rem;
+      background: rgba(12, 16, 14, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(6px);
+    }
+
+    #topmenu .brand {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-right: 0.5rem;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .toggle:hover { background: rgba(255, 255, 255, 0.05); }
+
+    .toggle input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #6ecf7a;
+      cursor: pointer;
+    }
+
+    #hud {
+      position: fixed;
+      inset: 44px 0 auto 0;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(8, 12, 10, 0.55), transparent);
+    }
+
+    #hud .left, #hud .right {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    #hud .right { text-align: right; }
+
+    #weapon-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    #ammo, #kills {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    #hint {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      z-index: 2;
+      pointer-events: none;
+      font-size: 0.8rem;
+      opacity: 0.55;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="topmenu">
+    <span class="brand">Shooter 1</span>
+    <label class="toggle">
+      <input type="checkbox" id="toggle-vision" />
+      <span>Vision</span>
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="toggle-sound" checked />
+      <span>Sound</span>
+    </label>
+  </div>
+
+  <div id="hud">
+    <div class="left">
+      <div id="weapon-name">Beze zbraně</div>
+      <div id="ammo">Seber zbraň na mapě</div>
+    </div>
+    <div class="right">
+      <div id="kills">Zásahy: 0</div>
+    </div>
+  </div>
+  <div id="hint">WASD pohyb · myš míření · LMB střelba · R restart · kroky vydávají zvuk</div>
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const elWeapon = document.getElementById("weapon-name");
+    const elAmmo = document.getElementById("ammo");
+    const elKills = document.getElementById("kills");
+    const toggleVision = document.getElementById("toggle-vision");
+    const toggleSound = document.getElementById("toggle-sound");
+
+    const MAP_W = 2400;
+    const MAP_H = 1800;
+
+    // Vision / hearing
+    const VISION_RANGE = 320;
+    const VISION_FOV = 1.1; // full cone radians (~63°)
+    const STEP_DISTANCE = 42;
+    // Sound expands faster than any projectile (laser ~2200)
+    const SOUND_EXPAND_SPEED = 2800;
+    const SOUND_MAX_R = 260;
+    const ALERT_MEMORY = 4.5;
+
+    const WEAPONS = {
+      pistol: {
+        id: "pistol",
+        name: "Pistol",
+        color: "#f0d060",
+        pickupColor: "#d4a017",
+        fireRate: 0.28,
+        spread: 0.02,
+        speed: 920,
+        damage: 34,
+        life: 0.9,
+        radius: 3.5,
+        ammo: 48,
+        automatic: false,
+      },
+      smg: {
+        id: "smg",
+        name: "Samopal",
+        color: "#7ec8e3",
+        pickupColor: "#3a9bb8",
+        fireRate: 0.07,
+        spread: 0.12,
+        speed: 780,
+        damage: 12,
+        life: 0.55,
+        radius: 2.8,
+        ammo: 120,
+        automatic: true,
+      },
+      laser: {
+        id: "laser",
+        name: "Laser",
+        color: "#ff4d6d",
+        pickupColor: "#e11d48",
+        fireRate: 0.016,
+        spread: 0,
+        speed: 2200,
+        damage: 6,
+        life: 0.18,
+        radius: 2.2,
+        ammo: 280,
+        automatic: true,
+        beam: true,
+      },
+    };
+
+    const keys = new Set();
+    const mouse = { x: 0, y: 0, down: false, pressed: false };
+
+    let W = 0, H = 0, dpr = 1;
+    let kills = 0;
+    let showVision = false;
+    let showSound = true;
+
+    const player = {
+      x: MAP_W / 2,
+      y: MAP_H / 2,
+      r: 14,
+      speed: 260,
+      angle: 0,
+      hp: 100,
+      maxHp: 100,
+      weapon: null,
+      ammo: 0,
+      cooldown: 0,
+      hitFlash: 0,
+      stepAcc: 0,
+    };
+
+    const camera = { x: 0, y: 0 };
+    const bullets = [];
+    const pickups = [];
+    const enemies = [];
+    const particles = [];
+    const walls = [];
+    const soundRings = [];
+
+    toggleVision.addEventListener("change", () => { showVision = toggleVision.checked; });
+    toggleSound.addEventListener("change", () => { showSound = toggleSound.checked; });
+    showVision = toggleVision.checked;
+    showSound = toggleSound.checked;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function rand(a, b) {
+      return a + Math.random() * (b - a);
+    }
+
+    function dist(ax, ay, bx, by) {
+      return Math.hypot(ax - bx, ay - by);
+    }
+
+    function clamp(v, a, b) {
+      return Math.max(a, Math.min(b, v));
+    }
+
+    function angleDiff(a, b) {
+      let d = a - b;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return d;
+    }
+
+    function circleRect(cx, cy, cr, rx, ry, rw, rh) {
+      const nx = clamp(cx, rx, rx + rw);
+      const ny = clamp(cy, ry, ry + rh);
+      return dist(cx, cy, nx, ny) < cr;
+    }
+
+    function segmentHitsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+      // Liang-Barsky style quick reject + edge tests
+      const minX = rx, maxX = rx + rw, minY = ry, maxY = ry + rh;
+      // if either endpoint inside
+      if (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) return true;
+      if (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY) return true;
+
+      function cross(ax, ay, bx, by) { return ax * by - ay * bx; }
+      function segSeg(ax, ay, bx, by, cx, cy, dx, dy) {
+        const rX = bx - ax, rY = by - ay;
+        const sX = dx - cx, sY = dy - cy;
+        const den = cross(rX, rY, sX, sY);
+        if (Math.abs(den) < 1e-8) return false;
+        const t = cross(cx - ax, cy - ay, sX, sY) / den;
+        const u = cross(cx - ax, cy - ay, rX, rY) / den;
+        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+      }
+
+      return (
+        segSeg(x1, y1, x2, y2, minX, minY, maxX, minY) ||
+        segSeg(x1, y1, x2, y2, maxX, minY, maxX, maxY) ||
+        segSeg(x1, y1, x2, y2, maxX, maxY, minX, maxY) ||
+        segSeg(x1, y1, x2, y2, minX, maxY, minX, minY)
+      );
+    }
+
+    function hasLineOfSight(x1, y1, x2, y2) {
+      for (const w of walls) {
+        if (segmentHitsRect(x1, y1, x2, y2, w.x, w.y, w.w, w.h)) return false;
+      }
+      return true;
+    }
+
+    function canSeeTarget(viewer, tx, ty) {
+      const d = dist(viewer.x, viewer.y, tx, ty);
+      if (d > VISION_RANGE || d < 1) return d < 1;
+      const ang = Math.atan2(ty - viewer.y, tx - viewer.x);
+      if (Math.abs(angleDiff(ang, viewer.angle)) > VISION_FOV * 0.5) return false;
+      return hasLineOfSight(viewer.x, viewer.y, tx, ty);
+    }
+
+    function resolveCircleWalls(ent) {
+      for (const w of walls) {
+        if (!circleRect(ent.x, ent.y, ent.r, w.x, w.y, w.w, w.h)) continue;
+        const nearestX = clamp(ent.x, w.x, w.x + w.w);
+        const nearestY = clamp(ent.y, w.y, w.y + w.h);
+        let dx = ent.x - nearestX;
+        let dy = ent.y - nearestY;
+        if (dx === 0 && dy === 0) {
+          const left = ent.x - w.x;
+          const right = w.x + w.w - ent.x;
+          const top = ent.y - w.y;
+          const bottom = w.y + w.h - ent.y;
+          const m = Math.min(left, right, top, bottom);
+          if (m === left) ent.x = w.x - ent.r;
+          else if (m === right) ent.x = w.x + w.w + ent.r;
+          else if (m === top) ent.y = w.y - ent.r;
+          else ent.y = w.y + w.h + ent.r;
+          continue;
+        }
+        const d = Math.hypot(dx, dy) || 1;
+        const push = ent.r - d;
+        ent.x += (dx / d) * push;
+        ent.y += (dy / d) * push;
+      }
+      ent.x = clamp(ent.x, ent.r, MAP_W - ent.r);
+      ent.y = clamp(ent.y, ent.r, MAP_H - ent.r);
+    }
+
+    function buildMap() {
+      walls.length = 0;
+      const blocks = [
+        [200, 160, 320, 220],
+        [640, 120, 280, 180],
+        [1040, 200, 360, 240],
+        [1560, 140, 300, 200],
+        [1960, 220, 260, 280],
+        [180, 520, 260, 300],
+        [560, 480, 340, 200],
+        [1020, 560, 220, 320],
+        [1380, 500, 400, 180],
+        [1920, 620, 280, 240],
+        [220, 1000, 300, 220],
+        [640, 940, 260, 300],
+        [1080, 1040, 380, 200],
+        [1600, 960, 280, 280],
+        [2000, 1080, 240, 200],
+        [300, 1400, 360, 180],
+        [820, 1420, 280, 220],
+        [1280, 1380, 320, 200],
+        [1760, 1440, 360, 180],
+        [900, 320, 80, 160],
+        [1480, 780, 80, 200],
+        [480, 1200, 200, 80],
+      ];
+      for (const [x, y, w, h] of blocks) walls.push({ x, y, w, h });
+    }
+
+    function freeSpot(minPlayerDist) {
+      for (let i = 0; i < 50; i++) {
+        const x = rand(80, MAP_W - 80);
+        const y = rand(80, MAP_H - 80);
+        if (walls.some((w) => circleRect(x, y, 18, w.x, w.y, w.w, w.h))) continue;
+        if (dist(x, y, player.x, player.y) < minPlayerDist) continue;
+        return { x, y };
+      }
+      return null;
+    }
+
+    function spawnPickup(forced) {
+      const ids = Object.keys(WEAPONS);
+      const id = forced || ids[(Math.random() * ids.length) | 0];
+      const def = WEAPONS[id];
+      const spot = freeSpot(120);
+      if (!spot) return;
+      pickups.push({
+        x: spot.x,
+        y: spot.y,
+        r: 16,
+        weaponId: id,
+        color: def.pickupColor,
+        bob: Math.random() * Math.PI * 2,
+      });
+    }
+
+    function spawnEnemy() {
+      const spot = freeSpot(280);
+      if (!spot) return;
+      enemies.push({
+        x: spot.x,
+        y: spot.y,
+        r: 13,
+        speed: rand(90, 140),
+        hp: 60,
+        maxHp: 60,
+        angle: rand(0, Math.PI * 2),
+        repath: 0,
+        vx: 0,
+        vy: 0,
+        hitFlash: 0,
+        alert: 0,
+        seesPlayer: false,
+        hearsPlayer: false,
+      });
+    }
+
+    function emitSound(x, y, maxR) {
+      soundRings.push({
+        x, y,
+        r: 0,
+        maxR: maxR || SOUND_MAX_R,
+        speed: SOUND_EXPAND_SPEED,
+        heard: new Set(),
+      });
+    }
+
+    function burst(x, y, color, n = 8) {
+      for (let i = 0; i < n; i++) {
+        const a = rand(0, Math.PI * 2);
+        const s = rand(40, 220);
+        particles.push({
+          x, y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: rand(0.2, 0.5),
+          color,
+          r: rand(1.5, 3.5),
+        });
+      }
+    }
+
+    function fireWeapon() {
+      const def = player.weapon;
+      if (!def || player.ammo <= 0 || player.cooldown > 0) return false;
+      player.cooldown = def.fireRate;
+      player.ammo -= 1;
+
+      const ang = player.angle + rand(-def.spread, def.spread);
+      const muzzle = player.r + 8;
+      bullets.push({
+        x: player.x + Math.cos(ang) * muzzle,
+        y: player.y + Math.sin(ang) * muzzle,
+        vx: Math.cos(ang) * def.speed,
+        vy: Math.sin(ang) * def.speed,
+        r: def.radius,
+        damage: def.damage,
+        life: def.life,
+        color: def.color,
+        beam: !!def.beam,
+      });
+
+      // Gunshot is louder than footsteps
+      emitSound(player.x, player.y, 420);
+
+      if (def.beam) {
+        burst(
+          player.x + Math.cos(player.angle) * (player.r + 10),
+          player.y + Math.sin(player.angle) * (player.r + 10),
+          def.color,
+          2
+        );
+      }
+      updateHud();
+      return true;
+    }
+
+    function updateHud() {
+      if (!player.weapon) {
+        elWeapon.textContent = "Beze zbraně";
+        elWeapon.style.color = "#e8efe9";
+        elAmmo.textContent = "Seber zbraň na mapě";
+      } else {
+        elWeapon.textContent = player.weapon.name;
+        elWeapon.style.color = player.weapon.color;
+        elAmmo.textContent = player.ammo > 0 ? `Náboje: ${player.ammo}` : "Prázdný zásobník";
+      }
+      elKills.textContent = `Zásahy: ${kills}`;
+    }
+
+    function reset() {
+      kills = 0;
+      player.x = MAP_W / 2;
+      player.y = MAP_H / 2;
+      player.hp = player.maxHp;
+      player.weapon = null;
+      player.ammo = 0;
+      player.cooldown = 0;
+      player.hitFlash = 0;
+      player.stepAcc = 0;
+      bullets.length = 0;
+      pickups.length = 0;
+      enemies.length = 0;
+      particles.length = 0;
+      soundRings.length = 0;
+      buildMap();
+      for (let i = 0; i < 6; i++) spawnPickup();
+      spawnPickup("pistol");
+      spawnPickup("smg");
+      spawnPickup("laser");
+      for (let i = 0; i < 10; i++) spawnEnemy();
+      updateHud();
+    }
+
+    function update(dt) {
+      let mx = 0, my = 0;
+      if (keys.has("w") || keys.has("arrowup")) my -= 1;
+      if (keys.has("s") || keys.has("arrowdown")) my += 1;
+      if (keys.has("a") || keys.has("arrowleft")) mx -= 1;
+      if (keys.has("d") || keys.has("arrowright")) mx += 1;
+
+      let moved = 0;
+      if (mx || my) {
+        const len = Math.hypot(mx, my);
+        const dx = (mx / len) * player.speed * dt;
+        const dy = (my / len) * player.speed * dt;
+        player.x += dx;
+        player.y += dy;
+        moved = Math.hypot(dx, dy);
+      }
+      resolveCircleWalls(player);
+
+      // Footstep sounds
+      if (moved > 0) {
+        player.stepAcc += moved;
+        while (player.stepAcc >= STEP_DISTANCE) {
+          player.stepAcc -= STEP_DISTANCE;
+          emitSound(player.x, player.y, SOUND_MAX_R);
+        }
+      }
+
+      const worldX = mouse.x + camera.x;
+      const worldY = mouse.y + camera.y;
+      player.angle = Math.atan2(worldY - player.y, worldX - player.x);
+
+      if (player.cooldown > 0) player.cooldown -= dt;
+      if (player.hitFlash > 0) player.hitFlash -= dt;
+
+      if (player.weapon) {
+        if (player.weapon.automatic) {
+          if (mouse.down) fireWeapon();
+        } else if (mouse.pressed) {
+          fireWeapon();
+        }
+      }
+      mouse.pressed = false;
+
+      camera.x = clamp(player.x - W / 2, 0, Math.max(0, MAP_W - W));
+      camera.y = clamp(player.y - H / 2, 0, Math.max(0, MAP_H - H));
+
+      // Expand sound rings + hearing detection
+      for (let i = soundRings.length - 1; i >= 0; i--) {
+        const ring = soundRings[i];
+        const prev = ring.r;
+        ring.r += ring.speed * dt;
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const e = enemies[ei];
+          if (ring.heard.has(ei)) continue;
+          const d = dist(e.x, e.y, ring.x, ring.y);
+          // Heard when the expanding front passes over the enemy
+          if (d <= ring.r && d >= prev - 2) {
+            ring.heard.add(ei);
+            e.hearsPlayer = true;
+            e.alert = ALERT_MEMORY;
+          }
+        }
+        if (ring.r >= ring.maxR) soundRings.splice(i, 1);
+      }
+
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        p.bob += dt * 3;
+        if (dist(player.x, player.y, p.x, p.y) < player.r + p.r) {
+          const def = WEAPONS[p.weaponId];
+          player.weapon = def;
+          player.ammo = def.ammo;
+          player.cooldown = 0;
+          burst(p.x, p.y, def.pickupColor, 12);
+          pickups.splice(i, 1);
+          updateHud();
+          setTimeout(() => spawnPickup(), 4000 + Math.random() * 3000);
+        }
+      }
+
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.life -= dt;
+        let dead = b.life <= 0 || b.x < 0 || b.y < 0 || b.x > MAP_W || b.y > MAP_H;
+
+        if (!dead) {
+          for (const w of walls) {
+            if (circleRect(b.x, b.y, b.r, w.x, w.y, w.w, w.h)) {
+              dead = true;
+              burst(b.x, b.y, b.color, 4);
+              break;
+            }
+          }
+        }
+
+        if (!dead) {
+          for (let j = enemies.length - 1; j >= 0; j--) {
+            const e = enemies[j];
+            if (dist(b.x, b.y, e.x, e.y) < b.r + e.r) {
+              e.hp -= b.damage;
+              e.hitFlash = 0.12;
+              e.alert = ALERT_MEMORY;
+              burst(b.x, b.y, b.color, 5);
+              dead = true;
+              if (e.hp <= 0) {
+                kills++;
+                burst(e.x, e.y, "#c45c5c", 18);
+                enemies.splice(j, 1);
+                setTimeout(() => spawnEnemy(), 1500 + Math.random() * 2000);
+                updateHud();
+              }
+              break;
+            }
+          }
+        }
+
+        if (dead) bullets.splice(i, 1);
+      }
+
+      for (const e of enemies) {
+        if (e.hitFlash > 0) e.hitFlash -= dt;
+        if (e.alert > 0) e.alert -= dt;
+
+        e.seesPlayer = canSeeTarget(e, player.x, player.y);
+        if (e.seesPlayer) e.alert = ALERT_MEMORY;
+
+        // hearsPlayer is set by sound rings; clear after short pulse so it doesn't stick forever without alert
+        const aware = e.seesPlayer || e.alert > 0;
+
+        e.repath -= dt;
+        const d = dist(e.x, e.y, player.x, player.y);
+        if (e.repath <= 0) {
+          e.repath = rand(0.2, 0.4);
+          if (aware) {
+            const ang = Math.atan2(player.y - e.y, player.x - e.x);
+            e.vx = Math.cos(ang);
+            e.vy = Math.sin(ang);
+          } else {
+            const ang = rand(0, Math.PI * 2);
+            e.vx = Math.cos(ang) * 0.55;
+            e.vy = Math.sin(ang) * 0.55;
+          }
+        }
+
+        const spd = aware ? e.speed * 1.25 : e.speed * 0.7;
+        e.x += e.vx * spd * dt;
+        e.y += e.vy * spd * dt;
+        resolveCircleWalls(e);
+
+        if (aware) {
+          e.angle = Math.atan2(player.y - e.y, player.x - e.x);
+        } else {
+          e.angle = Math.atan2(e.vy, e.vx);
+        }
+
+        e.hearsPlayer = false;
+
+        if (d < e.r + player.r) {
+          player.hp -= 18 * dt;
+          player.hitFlash = 0.1;
+          if (player.hp <= 0) reset();
+        }
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.9;
+        p.vy *= 0.9;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function drawWalls() {
+      for (const w of walls) {
+        ctx.fillStyle = "#2e3a36";
+        ctx.fillRect(w.x, w.y, w.w, w.h);
+        ctx.fillStyle = "#3a4943";
+        ctx.fillRect(w.x, w.y, w.w, 8);
+        ctx.fillStyle = "rgba(180, 210, 160, 0.12)";
+        for (let x = w.x + 14; x < w.x + w.w - 10; x += 22) {
+          for (let y = w.y + 20; y < w.y + w.h - 12; y += 22) {
+            ctx.fillRect(x, y, 10, 10);
+          }
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.25)";
+        ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
+      }
+    }
+
+    function drawVisionCone(x, y, angle) {
+      const half = VISION_FOV * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, VISION_RANGE, angle - half, angle + half);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.fill();
+    }
+
+    function drawSoundRings() {
+      for (const ring of soundRings) {
+        const fade = 1 - ring.r / ring.maxR;
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(120, 200, 255, ${0.15 + fade * 0.45})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    function drawPickup(p) {
+      const bob = Math.sin(p.bob) * 3;
+      const def = WEAPONS[p.weaponId];
+      ctx.save();
+      ctx.translate(p.x, p.y + bob);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+
+      ctx.fillStyle = "#111";
+      ctx.font = "bold 9px Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const label = def.id === "pistol" ? "P" : def.id === "smg" ? "S" : "L";
+      ctx.fillText(label, 0, 1);
+      ctx.restore();
+    }
+
+    function drawActor(x, y, r, angle, body, accent, flash) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = flash > 0 ? "#fff" : body;
+      ctx.fill();
+
+      ctx.fillStyle = accent;
+      ctx.fillRect(r - 4, -3, 12, 6);
+      ctx.restore();
+    }
+
+    function drawHpBar(x, y, hp, maxHp, width) {
+      const h = 4;
+      const pct = clamp(hp / maxHp, 0, 1);
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(x - width / 2, y, width, h);
+      ctx.fillStyle = pct > 0.35 ? "#6ecf7a" : "#e85d5d";
+      ctx.fillRect(x - width / 2, y, width * pct, h);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(-camera.x, -camera.y);
+
+      ctx.fillStyle = "#24302b";
+      ctx.fillRect(camera.x, camera.y, W, H);
+
+      const grid = 80;
+      const x0 = Math.floor(camera.x / grid) * grid;
+      const y0 = Math.floor(camera.y / grid) * grid;
+      ctx.strokeStyle = "rgba(255,255,255,0.035)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = x0; x < camera.x + W + grid; x += grid) {
+        ctx.moveTo(x, camera.y);
+        ctx.lineTo(x, camera.y + H);
+      }
+      for (let y = y0; y < camera.y + H + grid; y += grid) {
+        ctx.moveTo(camera.x, y);
+        ctx.lineTo(camera.x + W, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(230, 210, 120, 0.08)";
+      ctx.setLineDash([12, 18]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, MAP_H / 2);
+      ctx.lineTo(MAP_W, MAP_H / 2);
+      ctx.moveTo(MAP_W / 2, 0);
+      ctx.lineTo(MAP_W / 2, MAP_H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      drawWalls();
+
+      // Vision cones under actors
+      if (showVision) {
+        drawVisionCone(player.x, player.y, player.angle);
+        for (const e of enemies) drawVisionCone(e.x, e.y, e.angle);
+      }
+
+      if (showSound) drawSoundRings();
+
+      for (const p of pickups) drawPickup(p);
+
+      for (const b of bullets) {
+        ctx.beginPath();
+        if (b.beam) {
+          ctx.strokeStyle = b.color;
+          ctx.lineWidth = 3;
+          ctx.globalAlpha = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(b.x - b.vx * 0.02, b.y - b.vy * 0.02);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fillStyle = b.color;
+          ctx.fill();
+        }
+      }
+
+      for (const e of enemies) {
+        const body = e.alert > 0 ? "#a33f3f" : "#8b3a3a";
+        drawActor(e.x, e.y, e.r, e.angle, body, "#c45c5c", e.hitFlash);
+        if (e.hp < e.maxHp) drawHpBar(e.x, e.y - e.r - 10, e.hp, e.maxHp, 28);
+        // tiny alert indicator
+        if (e.alert > 0) {
+          ctx.fillStyle = "#ffcc66";
+          ctx.font = "bold 12px Segoe UI, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("!", e.x, e.y - e.r - 16);
+        }
+      }
+
+      const pAccent = player.weapon ? player.weapon.color : "#8fd4a0";
+      drawActor(player.x, player.y, player.r, player.angle, "#4a8f62", pAccent, player.hitFlash);
+      drawHpBar(player.x, player.y - player.r - 12, player.hp, player.maxHp, 36);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(
+        player.x + Math.cos(player.angle) * (player.r + 10),
+        player.y + Math.sin(player.angle) * (player.r + 10)
+      );
+      ctx.lineTo(mouse.x + camera.x, mouse.y + camera.y);
+      ctx.stroke();
+
+      for (const p of particles) {
+        ctx.globalAlpha = clamp(p.life / 0.4, 0, 1);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.restore();
+
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.75);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,0.35)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("keydown", (e) => {
+      keys.add(e.key.toLowerCase());
+      if (e.key.toLowerCase() === "r") reset();
+    });
+    window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+    window.addEventListener("mousemove", (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+    window.addEventListener("mousedown", (e) => {
+      if (e.button === 0) {
+        mouse.down = true;
+        mouse.pressed = true;
+      }
+    });
+    window.addEventListener("mouseup", (e) => {
+      if (e.button === 0) mouse.down = false;
+    });
+    window.addEventListener("blur", () => {
+      keys.clear();
+      mouse.down = false;
+    });
+
+    resize();
+    reset();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
