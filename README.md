@@ -68,7 +68,8 @@ game-concepts/
 ## Existující hry
 
 - **Cozy Cottage** (`cozy-cottage/`) – Relaxační pixel-art hra v útulné chaloupce
-- **Malý magnát** (`maly-magnat/`) – Budovatelská ekonomika / tycoon
+- **Malý magnát** (`maly-magnat/`) – Útulná budovatelská ekonomika: farma, mlýn, pekárna a rozvoz
+- **Skladík** (`skladik/`) – Útulný skladový clicker: kamion → palety → boxy → expedice
 - **Random Shooter** (`randomshooter/`) – Neonový arcade shooter s vlnami a shopem
 - **Sensible Handball** (`sensible-handball/`) – Top-down házená (ES moduly)
 - **Hex Colony** (`pixelplay/`) – Hexová kolonie (+ Pixels, Streets)

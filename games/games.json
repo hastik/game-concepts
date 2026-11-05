@@ -39,6 +39,31 @@
     "controls": "LMB stavba/výběr, tažení silnice, RMB/Esc zrušit, kolečko zoom ke kurzoru, pinch zoom, WASD posun, Space pauza, R silnice, X demolice, T trasy, F finance, 1–5 kategorie"
   },
   {
+    "path": "skladik/",
+    "slug": "skladik",
+    "title": "Skladík",
+    "description": "Útulný skladový clicker v pixel-artu: vykládej kamiony, zaskladňuj boxy, pickuj do košíku a expeduj palety. Najmi tým, stav regály a sleduj, jak se z ručního klikání stane hladký idle provoz. Ideální krátká směna i dlouhý večer u čaje.",
+    "file": "skladik.html",
+    "thumbnail": "screenshot.png",
+    "tags": [
+      "clicker",
+      "idle",
+      "sklad",
+      "logistika",
+      "cozy",
+      "pixel-art",
+      "mobile",
+      "touch",
+      "tycoon",
+      "single-player",
+      "vanilla-js",
+      "cesky"
+    ],
+    "status": "playable",
+    "created": "2026-11-05",
+    "controls": "Klepni na krok v řetězci Kamion → paleta → box → regál → košík → balík → expedice. Spodní záložky: Staff, Storing, Upgrades, Úspěchy. M ztlumí zvuk. Dlouhý stisk loga otevře nastavení."
+  },
+  {
     "path": "randomshooter/",
     "slug": "randomshooter",
     "title": "Random Shooter",
