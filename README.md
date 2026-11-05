@@ -68,6 +68,8 @@ game-concepts/
 ## Existující hry
 
 - **Cozy Cottage** (`cozy-cottage/`) – Relaxační pixel-art hra v útulné chaloupce
+- **Malý magnát** (`maly-magnat/`) – Útulná budovatelská ekonomika: farma, mlýn, pekárna a rozvoz
+- **Skladík** (`skladik/`) – Útulný skladový clicker: kamion → palety → boxy → expedice
 
 ## GitHub Pages
 
