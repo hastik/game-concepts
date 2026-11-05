@@ -36,8 +36,9 @@
 const PALETTE = {"outline": "#3A2A28", "wood_dark": "#5A3825", "ui_dark": "#2E2A3A", "ui_mid": "#4A4560", "stone_dark": "#5C5664", "stone": "#8A8490", "wood": "#8A5A3C", "path_dark": "#A08A66", "path_light": "#C9B28A", "roof_dark": "#9A3E28", "roof": "#C8643C", "markiza": "#E0703A", "loss": "#D9574A", "wheat_dark": "#B89030", "wheat": "#E8C85A", "gold": "#F2C14E", "grass_dark": "#5A9A4A", "grass_mid": "#7BB661", "grass_light": "#9AD178", "grass_spring": "#8FCC6E", "grass_autumn": "#C4A24E", "grass_winter": "#C8D4C0", "profit": "#6CC070", "water_deep": "#3D7FA0", "water": "#5FA7C9", "water_foam": "#A8D8E8", "sky": "#A8C8E0", "cream": "#F2E6C9", "wall": "#E8D4A8", "snow": "#F0F4F8"};
 const TILE = 32;
 const SEASON_GRASS = {"spring": "#8FCC6E", "summer": "#7BB661", "autumn": "#C4A24E", "winter": "#C8D4C0"};
-const ANIM = {"mill": {"frames": ["mill_0", "mill_1", "mill_2", "mill_3"], "fps": 4}, "bakery": {"frames": ["bakery_0", "bakery_1", "bakery_2"], "fps": 3}, "farm_chicken": {"frames": ["farm_chicken_0", "farm_chicken_1"], "fps": 2}, "truck": {"dirs": ["down", "up", "left", "right"], "frames": 2, "fps": 6, "cargo": ["empty", "wheat", "flour", "bread", "eggs", "milk"], "key": "truck_{dir}_{cargo}_{frame}"}, "confetti": {"frames": ["confetti_0", "confetti_1", "confetti_2", "confetti_3"], "fps": 8}, "dust": {"frames": ["dust_0", "dust_1", "dust_2"], "fps": 10}};
+const ANIM = {"mill": {"frames": ["mill_0", "mill_1", "mill_2", "mill_3"], "fps": 4}, "bakery": {"frames": ["bakery_0", "bakery_1", "bakery_2"], "fps": 3}, "farm_chicken": {"frames": ["farm_chicken_0", "farm_chicken_1"], "fps": 2}, "truck": {"dirs": ["down", "up", "left", "right"], "frames": 2, "fps": 6, "cargo": ["empty", "wheat", "flour", "bread", "eggs", "milk"], "key": "truck_{dir}_{cargo}_{frame}"}, "confetti": {"frames": ["confetti_0", "confetti_1", "confetti_2", "confetti_3"], "fps": 8}, "dust": {"frames": ["dust_0", "dust_1", "dust_2"], "fps": 10}, "mill_winter": {"frames": ["mill_winter_0", "mill_winter_1", "mill_winter_2", "mill_winter_3"], "fps": 4}, "bakery_winter": {"frames": ["bakery_winter_0", "bakery_winter_1", "bakery_winter_2"], "fps": 3}, "farm_chicken_winter": {"frames": ["farm_chicken_winter_0", "farm_chicken_winter_1"], "fps": 2}};
 const BUILDINGS = {"farm_wheat": {"footprint": [3, 3], "pivot": "bottom-center", "sheet": "farm_wheat"}, "farm_chicken": {"footprint": [2, 2], "anim": "farm_chicken", "pivot": "bottom-center"}, "barn_cow": {"footprint": [3, 2], "sheet": "barn_cow", "pivot": "bottom-center"}, "mill": {"footprint": [2, 2], "anim": "mill", "pivot": "bottom-center"}, "bakery": {"footprint": [2, 2], "anim": "bakery", "pivot": "bottom-center"}, "warehouse": {"footprint": [3, 2], "sheet": "warehouse", "pivot": "bottom-center"}, "depot": {"footprint": [2, 2], "sheet": "depot", "pivot": "bottom-center"}, "shop": {"footprint": [2, 2], "sheet": "shop", "pivot": "bottom-center"}, "house": {"footprint": [2, 2], "variants": 6, "pivot": "bottom-center"}, "scaffolding": {"footprint": [2, 2], "sheet": "scaffolding", "pivot": "bottom-center"}};
+const BUILD_BAR = ["road", "farm_wheat", "farm_chicken", "barn_cow", "mill", "bakery", "warehouse", "depot", "shop"];
 const SPRITES = {};
 SPRITES["grass_spring_0"] = { w: 32, h: 32, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAbUlEQVR42u2WsRGAUAhD8c9AkyVdxcXcIw07aGfpeaKfgmSCd8cDsmz7elhhhhXnAiBp7l4HAMAiovEIBPBHSNYCAJADDQCyF3Rkbc5e0PGVzZJQfUB9QAB9+8Dd9kzpA1N+gSQsB3his/rA25y37CcIwhUL2wAAAABJRU5ErkJggg==" };
 SPRITES["grass_summer_0"] = { w: 32, h: 32, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAbUlEQVR42u2WsRGAUAhD8c9Ak/Gcw71cKQ07aGfpeaKfgmSCd8cDsmz7elhhhhXnAiBp7l4HAMAiovEIBPBHSNYCAJADDQCyF3Rkbc5e0PGVzZJQfUB9QAB9+8Dd9kzpA1N+gSQsB3his/rA25xBRibR5vnTfwAAAABJRU5ErkJggg==" };
@@ -107,6 +108,36 @@ SPRITES["house_2"] = { w: 53, h: 38, uri: "data:image/png;base64,iVBORw0KGgoAAAA
 SPRITES["house_3"] = { w: 53, h: 37, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAAlCAYAAADiMKHrAAABP0lEQVR42mNgGAVDAzDCGFZaGv+HogeOXbvBiC7GgsxJEBmCvoJGBrLnWIZ6UoNHhJbGf5jHmIZLPkJOZUzDsaAY9dSop0Y9RV2AUqQveDO0S71hEVMr1kxkWPAGMzJQYio+s5zh48ePg94zG5bNgLMXLetm+PXrF0NKQvXwy1PTZtWPln5Du/QjNh0jg4CoDLLzAyXmUMVTDAwMDDv2LGTY9kkezp8U5ECWpTv2LGTwnnkdzv+7umNgYoqBgQHFQ6TGBDJA9tCAJj9SQIAB9t7mhgtvBleeIhbYyDAwvHnzBqfckSdD0FNHngyxmCK3YEAH1C4YyPYUtYpcahbdo/0pWoCMdKHh56kZM9+Ntv1GPTXqqSEKhvysB6w7/+vXLwYDm0jGYRErVloa/620NP5fOLL8/7BLckM1pY1sAADhgV9w6xYcKwAAAABJRU5ErkJggg==" };
 SPRITES["house_4"] = { w: 47, h: 36, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAAkCAYAAAAZ4GNvAAABuUlEQVR42mNkGAAQE5by/96VI1jllHRsGJasmsNIjDksDAMIvjAIofB5GN6RpB/ueCstjf8MgwRgc8uxazcY8Ya8ko4NAwMDA4PdiyMMhyRoy77HwMAQExWG4pgNy2bA3YGungHqIWRPMKH7hh4Oh7FxAWxqEkQgGDlWmAazw+1eYGbqBBEEG8Xx9HI4NkfhcwMuMGSSDUHHD4Vkg9Pxo8lmNNmMgGTDOJDNg4CoDKw1LDaAXL6nHYLUskwMQwCsWDORYcEbBoYFb/C0bfbu7Gf4+PEjXRwUFNaAVXzdqgasahYt62b49esXQ0pCNe7SZrCDabPqB0d7Hl8ap6gzgi1akaOUUrBuVQPOpEOx4xkYGBh27FnIsO2TPAMDAwPDpCAHmoT+jj0LGbxnXmdgYGBg+Lu6g3qOhzmckgxIKMZgDqd6yJNcbhuIYKbrC29olmeo5ngbGQaGN2/eYBUfEMeTks6PPMEd8kV49JGazolyPDVLFlrZMeQqKbo5PiNdaOg6fsbMd0PX8UM62Yw6frD2pEgBsPb8r1+/GAxsIhmHVChbaWn8t9LS+H/hyPL/QzapDPYUMjIAAM9frebj2QOjAAAAAElFTkSuQmCC" };
 SPRITES["house_5"] = { w: 47, h: 41, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAApCAYAAAClfnCxAAABjklEQVR42mNgGAUDAxhhDCstjf+D2aHHrt1gRBdjQebUpXEwMDAwMDxa94NBLmhwsRmggYvsCRZ03ww2h8NAggiUoaXxH+YBpsHs8EfrfmAkH7gn0B0/2ByOHvrogGmoJBuCjh8KyQan40eTzWiyGU02o8mGZslmyDTMkGvWtENYmgeDFaxYM5FhwRsGhgVv8LQqj57ewPD548dB42gPl3g4e9GyboZfv34xpCRU486wgx1Mm1U/dB2Pt6gcSoCFmPQGAzv2LKRZmibHDhZ8kjv2LGTY9kmegYGBgWFSkANNQm/HnoUM3jOvMzAwMDD8Xd1BnZBnYGCAO5zcUCQmNGEOp2qyIQcEGIhgiG248Ib+aZ5UYCPDwPDmzRus4oPe8UeeDLKQp1UmRQakZlKiHE/tYpEWdozWsLhARrrQ0HX8jJnvRts2o44fMo5/Xtg46B2PtQM+X1eJIfHyvQFx0I7pagwembcwxGHdwF+/fjEY2EQyDqkkYqWl8d9KS+P/hSPL/w/ZdD7Yh2hGBgAAVgMpZGwX00sAAAAASUVORK5CYII=" };
+SPRITES["farm_wheat_winter"] = { w: 108, h: 60, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGwAAAA8CAYAAACD6F86AAAEFElEQVR42u2ab0gTcRjHv5MREVEUEr4IHCIyxxi+S0REKmgQiEiIyIghY0nFUqMhJGURJIvSCkJliMWQsBDphVxgICFCvmkMyRESBr2IWMFGL+Io1ot54+52227Hb+fd9nze+Lvnnt+f/b4+zz332wCCIAiCMCcWVgO1Oexp2k5g41PcUs7xreKL0L2pkjY9ODYkWdzKZrRqhYoPncWuLwIMuNPlFM4qF0CtaHKxqhFu63u2bdv7G5jjMo0yCVejRQgSqziBOQ6BOQ5tDnua5ePCCgCeXp9kwFhsCy6XU7FDLLaV4x9ZDJOABYQDgI1WG/uUKBeGMB41tAUkGKFHWf9la13TAA3OdsXqye2sy1tZsb5XrJJj3U/rmMwEiyyGLW0Oe7q7f7CkzssL05KCQ/ggqaAbXIiD21mXLX2Fti3sAaZWc+wAYAt7wPkikjmE+6mgG1iJKvZT8s+W27Ix1fRzO+uy/ZT8ldYJAKmgG0dCnD4RxgLhg7iaaoG9ti3syYgpbgvCyeyxzwm4xO2mWnC+CFJBd6a9J5zcns9faUwuxMEW9mT9lexciINtT4B8/sKYu6L1C6IBKJtwFvHRkpYIE14M2xz2tLcWORtYLW3hWo4gXF+rzWK4CKtWseTCydOkYVPiyIboPyxRnW1vrQnL+sDSWlXee/n6MeYTwHyifIIxfYa9ezuJZDKJNWsnOv+ulbwYs/br6R3PCsbzPHieh897UxJx/vdx4z3DBLRsQqX1ezZ7GzzPY+jqfeM+w4hcQo+ug+d5nO66QkdTdJZImOcsUW+EB3UhlhbHTTNPxQsGANzqc6yk6hXvPenpZDrP+ZltxXv/Xk1QSlRLPrFYk08sSokGSaX0DDMY3S3qzn+WowkSbL9pPwkkEgnVvuvfSLB9Zf0bRdi+wbISLITZKkFDCqbXu4+Z3rEMX9YTJBgJZlYGLx0nwczE9MwvEoyogCpxPuRPN9sbMTw6R7tZgA9vQunt+A6a7Y0Su2A71RW06BJh8gUQxfdqO76jef8oJeqEkkhim66CaZmYokubcDUsFyPm0M8FVX1Z+6kt59WOZ7S0aGURXcKEZ84NZ+23/Adxd3a8aH8tfoUOdV0ff2M5+id7ne/7M7XzlkLfhWt4sfBA1V6JhdNVMGEyv7dDMnH9iSj8/OG8VZFZ/Eq1Xey/ASDzu8RC0SUXTveiQx7qX3+0qMrbRvcr1TY5MQC/twOX/XckPyI1bNFRjk0wo00QLjjyEGOjT5kVHZLf1msRa3JiQDlHH13HdrK9aDoxup9eNrUvzhbxmzjLxdQd2MSxhn7T++ll03TSwTIltLQ6KsJPL1vJKVEcYUZJE9VkKznCqHAwhk21YLRZ5kiLNVrPvMimf3QRBEEQBEEQhDL/ARgTtQg6SbNBAAAAAElFTkSuQmCC" };
+SPRITES["farm_chicken_winter_0"] = { w: 72, h: 49, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAxCAYAAAB5wO9OAAAC/ElEQVR42u1ZTWgTQRT+0gZBkSrFgwfBxYOoIHgzlByKBAkKIqIQQjAaCv4gwQSRIEUUFBYRAyLaSohEaggUSvFQFskhhxijXgoWIwolgmAOoZjqaaDWQ9xlN9ls9y/7k84HYd/OvJl98+17s+9NAAoKI/D06hg7dGB9EBZY+fzFY2S8V6lz4cOia4n5NXkM1VAeiAXXjRDlHaRw4JYaguz7f41nubagkygvNgl4oio+RtO4IboNU4IoQbYRJN70nNxnG0FMJiIYxi01JLKvEBbaxD8AQp/cOCYTkW3vNaf4eb3Gids67e9ropg/PgoAqIbygoFiufFnCLu3/5XI1VAeTCaiS5absz4xA18hrCjL6fP3POoTMwCAkI/xmEqQHAlukcUECflRpmxeHhR+s+L6TfbR2K7+f8XicyVX9mWfX0ey0kSy0uzPHvT24zx+t1pYWN2LEyPfNU9u17hgICoQRAgBIQTxZEZX8aqq1NBjrNPGPWTPgxCC8bN3aKJoJjQXq7z7diVyxZwt+o4jCACYkTXJfX11WLKwzsXI6SsRo0bfdbVYfK6k+IVRdZ5jk5c48jxILpROTtcGgyCtLi+nf/qINIGbX2w6IqQMEyQOg2AgumFY8fr3Lkg9ptmUJm/+PcA7AMPnUkLb2ixre9gZDrHHZ8ZV6ZV/dHtNlwfNsoO1B5n9dp24SdNE0Q0EXb40SglSwtT0CiXI1bXY+9cPuv6HT6SyA7lgubUePXXTQz1os4TYz8RdS5/n0RpiLw7vw8VPy64hdOrJVeFUkRCCrVu2QUuI9UwU02wMcqR1kiOn1y8kUllwxRyCgWg7qfx2H7WWXzmFuPYUQPtE0ZIQ47NdrpgD92y/prE7X5VMIYq3IXjl64a6aTaGNBvDjdRL3LpdsKbUEBuYZv2q3z4AILVsyPt6nTiqIcqSWkyvgTyx0vDQvsiDO8qotfzC1VHFqhkG6vE+MfhnWkGOLg8yYqAR73PlcYfTw8N1iaLV4UFBQUFBQUFBoYB/lSLwnHu/IrwAAAAASUVORK5CYII=" };
+SPRITES["farm_chicken_winter_1"] = { w: 72, h: 49, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAxCAYAAAB5wO9OAAAC/UlEQVR42u1ZTWgTQRT+0gZBkSrFgwfBxYOoIHgzlByKBFkUREQhhGA0FLQiwQSRIEUUFBYRAyLaSohEaggUSvFQFsmhhxijXgoWIxVKBMEcQjHV00Cth7jLbrJJ9ze7m84HYd/OvNmZ+fLe2/dmAQoKI/B06hg5cmijHzZY+vLVY2S8t1vn/MdF1xLza+IEysEcEGU3jBDl7Sd34Jdqouz7f41l+KagkygvtggEoko+RtO4ARqGKUGUINsIkgY9J/fZRhCTDosL45dqMtmXD4lt0h8AsU9pHJMOK7Z3eqZ0vk7jpG2t67c0UcydHAYAlIM5cYFSufZnAHt3/pXJ5WAOTDqsS1Z6ZnVsGr58qKuspC/cC6iOTQMAgj7GYypBSiS4RZYSJOZH6aJ5eVDo7arrg+zjkT3Wv8Viswuu7Mu8uIFEqY5EqW5NDHr3aQ6/Gw3Mr+3HqaHvmh9u1zg2EBEJIoSAEIJYIq2reFVVauhZrNPGPeIughCC0fN3aaJoJjQXq4L5tiVyhawt+o4jCACYoXXZfXVtULax1s0o6XcjRo2+62qx2OxC1zeMqvMcm6zEkedBSq50eqrSHwRpNXkl/bPH5Anc3GLdES5lmCCpG7CByKZuJejfvyS3mHpdnrz59wHvAQxeSIpt6zOc7W5n2MWenBtVpVf80W41bRY0w/VXDDL733VikKaJohsIunplmBLUDZNTq5QgV9diH948bPsOH09m+nLDSns9fuaWh1rQVnCxn/F7PZ/To8XFXh49gMufV1xlAZNPr4mnioQQbN+2A1pcrGOimOKibYS1ktOqYyXiyQz4QhZsINJMKL89QKXh3zyFuP4MQPNE0XIXEzJdvpAF//ygrgl3vzbnSIQdX1aln+KiSHFR3Ey+wu07+d4Vq+z4MlKcX7MVAACSK7qssNNpo1qiLK/FjCxQSrDcTdRv8PCuIioNv3h1VLFq5gL1WqEwZ6/I0WxBZizQDCt0zXGHnjhgh5u4KlG0w00oKCgoKCgoKBTwDwNp8JwX1YZXAAAAAElFTkSuQmCC" };
+SPRITES["barn_cow_winter"] = { w: 106, h: 54, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGoAAAA2CAYAAAAvbQwbAAAC8klEQVR42u2aP2gTURzHf7E3dxLMFIMgSMlQnIKDBEngpiBBREqxoUgGlSModnFQJyGixgwdDiyJhCJSQslQThIhdCjiIBFLKQilZGqhSzI+LHEIF83lLr27vCTv4vcDgcf7x3u/b97v/X53RwQA4IfPWHFt7kobZuHPzt6+b5jxklnl1rc6LMsJNRWlgFIkWpbbwwgmwZT80XaP+uqUNa1TcCkYhBozbgWDUBMWbCcctNX/HEzmDSAUhAJjE8osehGxze0exr137nmUtntEcshPjdwiaUqR5JC/uwC9rLcZkUN+KqdjRNmK5ThSq331RGQ6p95eTsdIrv40HWfWX8c4p51xVns3m9M4rpyOUTxb6elvVsflyURw9pTi2Qo1cotUPzi2LM9fukBE1FMOKMWOGC7KZnMGlCKV07GBZav+ZnNarX+U+60fHHftaxTsTjjocy3UzfnzloZD2VnZKJRRMLtCWeZRMDR/wYzucGjXhxiLP8HZU9P69a+/bJ2ogVGfUqqhjUPbx413dNiaocPWDN9g4svnt9RsNqkmRSjyu+Z4UozrkLj9vCsUY4wYY3Qv+bTnhNk9UQOf9bnZBMYNZlV9RowxSj98OXweBUZP5s1jYozRjfgDMYXS3YGolD6Jub6JnCg9T+PBZv2E23yb9RNh/0DS/3ZivMpITpRWLdBW66JpWy4RgdVdMJLXHFYiAcGEAtMk1Nwtcawg0lqEE2pvQxwriLQWuD5EfYjsvCjUWZk98iy4PggFIBRAHoU8CnnUpKK+fCbV/aBFzW/Dz4yRfCbVTq6oPnFPFOCTR7nNd0R9Q+p1fINcX2ntqqPJEsvfYVELPqy/6n6J9O+vsf+D7Li+vhOVSl4f6q7Sx3sdNb9NWrVgq68cXTpz73cXnhBR5yskrq4P2EerFqhUfG/rD3w/9YKIOl8hQagxI0eXbHsSvd/Ko9eOPJCEO2cyOL0ipGm/a6Y+PAd/gwTgARbCl9tO6gEAAAAAAABTzx/+OGmws8v+5AAAAABJRU5ErkJggg==" };
+SPRITES["mill_winter_0"] = { w: 80, h: 72, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABICAYAAABhlHJbAAADQ0lEQVR42u2bQUgbQRSG/1QpVMRDWEoQadOLSJDisYRQPHhYKEiQWooElSKthSLSQ+oxJyk5SZGiEIqKBLEl5CR7yEEkeCg9iIRWvBiKlBwWqTlIWZDtIdnNul01u87a2fV9EPIy2XnM/DNvZvZlAxAEQRAEQRAEQRAEQRAEQRAE4QECvDYsPRJTzWXJbDFAQ2aDSmlNjUZ61EppTeW1jbd4F1EqLHPdvla3HEcjPSqP/ra/7wU8ISAAbHzduVL9P+U8M1970wMoT6wCL0SVpZCt8DFSqaLb4fr71CepZjAS0tcCXoQm5PajsL83Ed4hAUnAGyagcWFn9Z0vz4Hmjou9IUilCqpJEdjY+accAMKZBKSJVb1uf3vDTziTAOYKlvWMmMvDmUTt+AKgmhTRkZa8I6Am2MNuAdLEasM+p1zrpGZj+o3ua3dfRrlUQTiTwO6+DCkt6bZ2/Xnl1aQIGG2AmZCu3ZxHIz3quIAznbNrD35MoS34ACdHByjPzTv2Y7TNvNzi+By4JAOQDY22aQ8afL3ddu7HaI8LHtxEpnKbjss2qveZ+Qt29WJJrg8sI1wN4bHX73B8fIx7T5/j55e1S+u4dV0+u6ALqChK7fW7zCS54EoIp0dian6nMczNdNZ8ndZpI/GRScf+AOCxUEHhV7D2oa0TiqLwuwvn1lN1647tuiv5+rGm41QvK1dbAACj8ZBtf6PxWltWZue9cw4cepZylAwVB8b0mcbcb5/gHQFz6ymcHB04qqfNQOZ+vTYDtU3EKVrYWoW3HbT11DMzMJktBswp+Is2BSsu+u48gS6rvyWHAChM+3qtyQSpsIyp3Kblmc168Q8hn11oauOQCstoGZ5By/CMf7MxVofiZoRphieLP25GOqvZkDSHpVUZD3CbUDUv+G5sAL4VMNYFyPLZG1ZZlhHrIgGbongICMLZGScIAoqHJKDvuNbfhT8M9bvm+/Tze38LaOdgzJNvCmESkARkwuSrIAl4FRYWj0hACuH/gDgwRgI6ZWV2HvE+wZVMMoUwCUgCEnD5yQQeO9x+t7vxdIKi4Ntukc+Hi1j/H4PZwAK1gW3r9FYygRe0gY1GoN6mFYggCIIgCIJwyF9lq5YjkbP72gAAAABJRU5ErkJggg==" };
+SPRITES["mill_winter_1"] = { w: 80, h: 72, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABICAYAAABhlHJbAAADc0lEQVR42u2bQUjbUBjH/9MyRMSDhCEiW04yyhBPIrJDDzuIgxFEZRRxMsR1YxRPzmOOw5MMGSoiTkSGSgk7SA4ewpAxZAcp4qSnMDz0EMYsHkqYuIPNs7ZJ27XJa1q/H5S+vr68l/fLe19eHi1AEARBEARBEARBEARBEARBEARBEIS33PGq4v7gw0s/dvjb8YmrfQ54ebK7B4c3Pi9PPcHU8p6ngpzaOJl+An1yA3g5cOmmyACvK89DHgBMLe+xttSjJMsXM+/RVfUq4ZLIBp7yBnt7PG9rsLeHSSxEdFW9lul3gdbI2z04RFpXPGsnrSssbPAY7dwEZtMkSp5ITOsKmkSJ+02Ju0AvJFZLXlUEWoHdTmJ20Hc6zk/yuAhUj5Ks8+pREqmZAZbWzvuQ1hVWRlwZY+nc48SVsbz60roC7bzPtryVto4DwNqumXWgJay7S4A6uXGdzsrXJjcQavkOfX6BdbK7SwAAxBMG1DkV4soY4gkDekZkPGEg/VGGPr+AVEJ2LG/lp2YGgOw0gNY51ZU+evokMiHgRucKpcXpt/jyRi6p/LOMvGJ12qXzVghfK1sH+upRLrYlY2hUrrhMISYEdwVyuYlEY1pJeVoghNiW7FjOkldqfbl5bZ2PsGYAa0aNbCa8eP0OZ2dnuD/8HL92Phc9xiqnbC5CCkdufJedV059lkDTNK9ef3RXNhe4PAuX0tnsclI4wjrtRn22NHfANM3a2UwoB7H1gqX1VKMvz7EBBAmsJr6cwlb88+u0rYpAu5tC7p0WAMaldgAR2zrGpXasK8my6675KazufUI0ptmu2QoJslhXkhnB9nU3jsyicWS2fmPgbuqB43fF5BWT+HTp5+2NgbnyCq0BpXCESSxFeN0LdBIh9Qj5se7QyBuJ1ZYY8KO8x52AYRi2+XbTWdm8hevA2JbsOHr2TwFBEPJe+6f2MTF3A6LuBYb+ahVtSeUyNCpje6Sp/gV+GAq5Li9X4sX2+zqMgcc7bIdlXUm6vsi16rNCghSOAMc7QHC4TkZgcJhJ9Bqe8vhO4YxEHqOdlzz+N5EKOhZ51eZ5GzW1jPlfFpd++/K8aD+QBJJAEkgCCRJYLW7d3xxa7nVd/zrBNPEjvu/PXya4/X8M1y4scHVhmztqaDPBR1gXtj+Iy7sUgQiCIAiCIIgy+QfkedysUmUWxgAAAABJRU5ErkJggg==" };
+SPRITES["mill_winter_2"] = { w: 80, h: 72, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABICAYAAABhlHJbAAADQklEQVR42u2bQWjaUBjH/84ymJQeJIwyZLOXUqSMHod46MFDYFCkrGMUmWXI1sEoZQfXo6cyPJUiowUZVUSkG+Kp5OChFOlh7FCKbKWXyijDQyirhzKEkh1qNGa2MzHpXtLvB+LnM+8j7//y3vfliwIEQRAEQRAEQRAEQRAEQRAEQVgAB6snlpgNSOq2WK7soCnTQK2Sl/y+MalWyUusnuMt1kUUSmmmz2/ALMd+35jEor/dbwcOSwgIAFtf9vrq/7taNMzXwWIQ1WgWeMFLRgo5ABsjVGot29t8X/goXBgGCWlrAa9CFnL3kdfeQYR1SEAS8IYJqNzYjfrOlnmgeuD8+DCESg31GA9s7f3VDgDeVBhCNNvqOznY9uNNhYGVUtd+StTt3lT4In0BUI/xGEoI1hFQFuzhKAchmm3bl7TLg5RtLL5p+do/FFGt1OBNhbF/KEJICC1bPv6y9nqMB5Q2YJiQpt2c+31j0hyHjsFptac+xOFyj+Ds5AjVlaRuP0pbzcsdhvPADRGAqDhpjfaUwtfbXf1+lPYcZ8EgslDY1t22VX9gmD+3ZxwbYnNiDcLUJRx5/Q6np6e4/+QZfnzO/7OPWccVc2sAgNAEh9JPNxqNBhq/qoYUF0wRMDEbkIp7ImQB9SAPWklodl6Tj+eh4Y7PmeVkW8Dm6+t+mc09sLAZb1p3NPfNFJtpzdB5q61ad3YV5Spc7pF2ehOMIDTBGT5O0wScfhrXVQzlg5ErrzQtfs9OjjomNLOctI6Ahc14xwC09JOvwH79yn6Ue6ClrsB+9kDlsu0mih52xGEADfYFjOXKDnUJXmtQ0BIwjAg4ligmCKU0FgrbXXO2y6JoMbfWU+AQSmk4Z5bgnFmybzWmW1LcizC98Hj9+80oZ/W6JNXLslsbCzBbUFVHTDMiqG0FDHgAUey8YRVFEQEPCdgT5WOA4zqvOI7jUD4mAW3HtT4XXp2eNM33+af39hbQzMT2upJmWsIkIAmom/lXbhKwH9bWT0hAWsL/AT4YIQH1kllOIjTBmVKKpyVMApKABEz+ZQKLAx68O2qNB+tG/x/DsIkFLibWdc9axQRWkCfW74N0m3YggiAIgiAIQid/AD1KnA0G0rJ2AAAAAElFTkSuQmCC" };
+SPRITES["mill_winter_3"] = { w: 80, h: 72, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABICAYAAABhlHJbAAADc0lEQVR42u2bQUjbUBjH/9MyRMSDhCEiW04yyhBPIrJDDzuIgxFEZRRxMsR1YxRPzmOOw5MMGSoiTkSGSgk7SA4ewpAxZAcp4qSnMDz0EMYsHkqYuIPNs7ZJ27XJa1q/H5S+vr68l/fLe19eHi1AEARBEARBEARBEARBEARBEARBEIS33PGq4v7gw0s/dvjb8YmrfQ54ebK7B4c3Pi9PPcHU8p6ngpzaOJl+An1yA3g5cOmmyACvK89DHgBMLe+xttSjJMsXM+/RVfUq4ZLIBp7yBnt7PG9rsLeHSSxEdFW9lul3gdbI2z04RFpXPGsnrSssbPAY7dwEZtMkSp5ITOsKmkSJ+02Ju0AvJFZLXlUEWoHdTmJ20Hc6zk/yuAhUj5Ks8+pREqmZAZbWzvuQ1hVWRlwZY+nc48SVsbz60roC7bzPtryVto4DwNqumXWgJay7S4A6uXGdzsrXJjcQavkOfX6BdbK7SwAAxBMG1DkV4soY4gkDekZkPGEg/VGGPr+AVEJ2LG/lp2YGgOw0gNY51ZU+evokMiHgRucKpcXpt/jyRi6p/LOMvGJ12qXzVghfK1sH+upRLrYlY2hUrrhMISYEdwVyuYlEY1pJeVoghNiW7FjOkldqfbl5bZ2PsGYAa0aNbCa8eP0OZ2dnuD/8HL92Phc9xiqnbC5CCkdufJedV059lkDTNK9ef3RXNhe4PAuX0tnsclI4wjrtRn22NHfANM3a2UwoB7H1gqX1VKMvz7EBBAmsJr6cwlb88+u0rYpAu5tC7p0WAMaldgAR2zrGpXasK8my6675KazufUI0ptmu2QoJslhXkhnB9nU3jsyicWS2fmPgbuqB43fF5BWT+HTp5+2NgbnyCq0BpXCESSxFeN0LdBIh9Qj5se7QyBuJ1ZYY8KO8x52AYRi2+XbTWdm8hevA2JbsOHr2TwFBEPJe+6f2MTF3A6LuBYb+ahVtSeUyNCpje6Sp/gV+GAq5Li9X4sX2+zqMgcc7bIdlXUm6vsi16rNCghSOAMc7QHC4TkZgcJhJ9Bqe8vhO4YxEHqOdlzz+N5EKOhZ51eZ5GzW1jPlfFpd++/K8aD+QBJJAEkgCCRJYLW7d3xxa7nVd/zrBNPEjvu/PXya4/X8M1y4scHVhmztqaDPBR1gXtj+Iy7sUgQiCIAiCIIgy+QfkedysUmUWxgAAAABJRU5ErkJggg==" };
+SPRITES["bakery_winter_0"] = { w: 74, h: 59, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEoAAAA7CAYAAADcrhwVAAAC6UlEQVR42u2ZT2jTUBzHv9Wdexg9iWhPY+xQdtJRPIgMidtFZBMZRUepOmWE4qF48ODBwygiMjxsWkaFIsKk9OIMMmRIHVQvYxQdPcgcQ3oI4uIOEpB6WBLSLE2bJm1fst8XSn95f/M+vN97v/cSgM+UfvSUV+3Ug+S8W+0eA4lAuamA3wYk/Sy90D8HT5y9STOKXI9cz1X93v9ba5QnlKvYWS2UlN1vxGlffV4GNRufxfdyEfvo19JiU1dLnejrEKjo0GDNb26jH9P6162AK64XHRqsrXze8AyEsTPDuDw1U5dWeLUA4xi2kqPYTuQwH+faAtYHH0soVzU7rPzzS8KBEedqdoD5GpSVVGDrI2EKDyiOIlAeBaVfDFnO6xko9aWkFKfZQrlaZ4czMS1N/wOg5ZnVk1KcaXqjNvX9mdVrBlatp47H1cg8nIlBSOQQGQgBiq29qM6WUtxBGQCbFRGRgRCERA5SRUREqaeWqbMVYMZ0szaFtIBwJobNiohtBZg+veEtgqFN6G0AwbTgPOCcDuEQAFbtrAjTgPNJ1Ly8Ubc+thZHBfxwhDED1UjTofZAWS7mfH7NE3mnJq61BHTpeRJZEciKLp31Pn0p4M/eHlak0xgL/rDdaDfrcaM3wOfXsPPmdd2MElZf1pVRQcmyDFmWwd/L2DrzWR5h2hlsL+rpIbWqx3PXIcsyzk88PDqHYqs1qWP3UZ67IdC5GBOgVD/v9ICs+ukWFMcz6vjk/bY6+bc8Zxvq+OI3R20wdyh+eyHv+ksZIbEgx2vU+IcrXXFdz4JavvQek+8uNnw2jaCHQ9a714boP1BGKM0gnTsJiKLYtExx12eg7Kq42/qM6vXC7Yk4qpchQEd3vaMiWzOKRZdgDpRTl2gWHszc7kfhDru7HjOut7D4i+kZRWsUgSJQBIpl+eIrjK1N49ld7d5cuQpu73OV36VOBN2deYD8pQkwv3sPiUQikUgkEolEIpFIJBKD+g+80Kt9K+ftLwAAAABJRU5ErkJggg==" };
+SPRITES["bakery_winter_1"] = { w: 74, h: 59, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEoAAAA7CAYAAADcrhwVAAAC60lEQVR42u2ZT2jTUBzHv1WP0sPoSUSDh1GKlJ10lB1EhtTtIrLJGEXHqDpllOGhePTgYRQRDz10WkqFIsKk9OIMIjKkzn+XMYqOHmTKkB3CcHEHCUg9LClJlqZNk7Yv2e8LpS/vX9778H6/93svPnhQ4q9PT9TP/mNnr9vt8xBIBMpJHfHahFL3H33M5D7QiiLTY1w+Nw/+9+7fWqMyvrKFiUHOsfm52kfNTs/ie6WMXfRp8o9iG6dOD3XWmUdCwZpXzMVoLitf132Orailz6uugTFyZgCxySuavNKzDNK5tCZvfW4YG/ECMB2ttQPMc+GB3k8p4uT/RI7fS1gE5mlQZlKArQxyFB5QHEWgXApK7QxZLusZKGVQYjJaT/OVLU2ay8bqeeofgHqZUTsxGTXMb9Sn+n1G7ZqBVdop83E0MueyMfDxAsL9AUBO1weqSovJ6F4dAGtVAeH+APh4AWJVQFhup9TRpGVg+nyjPvkUDy4bw1pVwIYMTJ3fSPo+oU4D8Kd4e2e9SChYmwpgHwBW03kBuDQ5sy/gfBgxrq/XjXetxVE+LxxhjEA10lSgPVCmzjxRXHZF2YmxiZaA5h7PIS8AecGBa5ZIKFh7/6WEPzs7WBJPYsT/w3Kn3WwXHb6GRHEZP18816wo/s1TTR0FlCRJkCQJiTtZS4dk0yNMO5PtRTs1pFb1YP4qJEnCubF7B+dQbOaTOnYf5bobApWJMQFKsfNOT8jsPd2CYntFHR6/29ZL/i3OW4Y6uvDNVh/MHYpfni86Pig9JBZk20eNvr3cFdN1LajFi68x/upCw2fDCHogYL57rQreA6WH0gzS0HFAEISmdcqbHgNlVeXN1ldUrx23K+KoXoYAHd31DoosrSgWTYI5UHZNoll4MHOzD6Vb7O56zJheZmGb6RVFPopAESgCxbI88RXG0qaRvl2/N5evgtv7XOV1KQtBdWfuI3tpAszr1kMikUgkEolEIpFIJBKJxKD+A2stpeeH8PsRAAAAAElFTkSuQmCC" };
+SPRITES["bakery_winter_2"] = { w: 74, h: 59, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEoAAAA7CAYAAADcrhwVAAAC7klEQVR42u2ZP2gTURzHv9GOkqFkEtHgUEKQ0ElD6CBSJLaLSCulBC0lapUSgkNwcHBwKKGIQ4ZWQ4gQRKiELNZDRIrE4p+llKAlg1QpkuEoNnaQA4lD78Ld5XLJ5S7Ju+vvAyG/e3/vfXm/937vnQsOovrr01P5s/v4uRtWte2Cw0g+fPxRnZa4Hw+abfcICBKKINjF1ov57/2/tWZ5XKmCqaDXsvEN2Fmo+dl5fC8VsY9BRfox7OL0mRFL+2oQKuT31ZziLlpjWf+65bJsRq1+3rCNGGNnhxGZvqpIKzxfQiqTUqRtxUexHc0Bs+FaJ4INwMFwpUrd9or/sQx3YBgUzNFC6SEJth70UsBJkTkJZVOh5Ishy3l9E0p6qWoiXLe5UkVhe9ORepr8B6Cep1WvmghrpjdrU96fVr1Wwkr1pPFYGpl70xFw0RwCQx5AtOsvKrOrifBBGQCbZR6BIQ+4aA7VMo+AWE8qo7BFwdTpWm1ySQ7edASbZR7bomDy9Gao24TcBuBOcubOeiG/rzbjQYMArNpZHrg8PdcQcD4KaZdXc/N9e3GUywlHGC2hmjHj6Uwo3cU8ll+zRd7Jiam2BM08iSPLA1negmuWkN9X+/ClgD97e1itnsKY+4fhRntZLzx6HbH8Gn6+fKGYUdzbZ4oyklCCIEAQBMTupg0dknWPMJ0Mth/15CK1y+LCNQiCgPMTDw7PoVhvTerafZTtbghkLsaEUJKfd3tAev30ShTTM+ro5L2OOvm3smBY1PHlb6baYO5Q/OpC3vKXUovEAqbXqPF3V3riurYVauXSG0y+vtj0WTOCHvbo714bvPOEUovSSqSREwDP8y3LFHccJpRRijvtz6h+L9y2iKP6GQJ0ddc7LBiaUSy6BHNCmXWJVuHB3K1BFG6zu+sx43pLy7tMzyhao0goEoqEYhlHfIUxtGmk7tTvzcWr4M4+VzkdaSLI7sxd5C8tBHO69xAEQRAEQRAEQRAEQTDIfykJpX0zlCXLAAAAAElFTkSuQmCC" };
+SPRITES["warehouse_winter"] = { w: 106, h: 48, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGoAAAAwCAYAAAD5NO8GAAACtElEQVR42u2bP2gTURzHv6mhiIQMRSSIaHCQchyhYwkOjjd0KNKh3CLcIAqlQxZBgoOUjB3EQRwCLsFBpEMpGUQ6ZegUQgidpDh1KMUUBznUOCR33J+XcP9yufO+Hwi8/N57v9z7fe/d773HBSCEREfOKFSl1RHDMT86g9NcmP5565ejky4jGjE72g42anVAU0ZhBMszlNHT7p+7bLvN9rgQUDAKFTNBBaNQCxass1721H7J7xROYl3QMcQ99sgWE9YfUuQSDvf3gFodilyy2dv9c7POiSKX0NBUoNma2k9pvnXZAQh9GvUNTYVy8lXYT9TewOnTS79pYxf5dPZraCpeNlu29iJbKKGMQPb6A2Di2Ai61W6W9/cAAL3+ABVZGjup1VGRJXMwh5M21rIptMMu9Fmro6GpqMiSKZjTPq29yKf1+m1tHGMUjV3k0zlGY+wbVrvhCwgsmG0fdV9+6LoglsOVTWEdGIJtr5dzvoViip8fP7EitPcGHU9CCRcTu5+Pp69WWOe7buWOjAIuUcBlNEdIT56/wHA4xN2tbXz/9NG3M/azc9B6Zwql6/r48+PMNsO8ziihUCQahEJNPsu/L3ydAXLDu6ic9bcIXdeTd4Rk3F1pYVN9lqjriXVGlYt/UiHS2dW1xF3TEh9C6SDSGZW2x1tmhQKA9pcPOLq657K/efyI0U7So08kEmGOolCEQhEKxVVf+J3+2s3UBGUtC0LNWoan6WRiU/qPhZp1PsbNMHNUNnOU3zs/aafM82LRccmHSfwH3YtM3dWvnl731O71+1989DFHEQpFKBSFIinY8GZtNeeVeazmAguVlX2RXxYdF757HhOFWw9cL2Hquo7Tb11/L2CG/dc2mU0VGE+EG7ejy1EkeoyJUJUwWgago8igpGKGSasjphtCCCGExMY/cUrxo1mwtyoAAAAASUVORK5CYII=" };
+SPRITES["depot_winter"] = { w: 72, h: 45, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAtCAYAAAAN1C2uAAACXUlEQVR42u2Yv2vbQBTHvzYiQ/BQPBSaBlI6lGJUzSH/QDp0yNRBdKnoEEqawVMJHo2HDiZT6BAcCMFDhtLBBHfrUEwIGYIqRKfSQn9kKCaG0uEIuIOj6+l68i8pTqx7XxC8905P0n1093Q6gESKo4wcWCrc76apgy3/UyZOvqEKHhydTD2YNWcNj4olwHnYjQPKSNNoaXqn/8XWa82eMSYoA5ooANVavDNSXnbUN3Id2y5T2X4PU3Fsbje905DdqJZ5TDwA8DZVXsWxlfGoa4r3i8oTY6KCeyVepBvVMlAswTIL3A4eULQrjg3LLAAAXM/v2cUSXM8HLvL4OYIdgJLjqmuiVkejWobr+RyUHBfP37iIy5A2anX6zKv0G/mQ7/qtTGI1aP3N+6luy8+byKGNHNrJTrGFwjI6nQ4A4MbtRWXi7ouXkW1XnXf2/ZDbuZv3wBhD7uxLclNMBCRLvPlVqh+s4Bnz8yYYY6Hj2P1w+esgeV5PWnGmjNYraVntb17InyFAYe08uBvyn378nMxCMU269TzeGEg9oJ9b5wRo4v9iJAJEgAgQAboeMgDgVXmTb3G8rb9OdYefPH7WtSzz3/aH62FvfzvTdwS5rqfNiLAsM9RfEVYkIDlJN0hD1SCCNESRHjTc0iB5eg2CZARJIpyv/ru+SZPcj4nSMBt3qr/3AErQX8sygf0BgMSkFXsVKmjT6vOv8uwcGGNKSGPVoLT4K/Zq76X/+YGZ81/xa1AaIQHgoEatQdlBhUsHf+R1kG6+1jUoLiRtatC4kKgGabA4JpFIJBKJpNRfmCW/OCnnUr0AAAAASUVORK5CYII=" };
+SPRITES["shop_winter"] = { w: 72, h: 47, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAvCAYAAABAHIylAAACYElEQVR42u2ZPUjDQBTHX7VzB8luJhEHdZROVYoEXaQoiIgVKX4NRRyKozhIEXEQwQ+KVCgugrhYgoiKoIMuVURLp7p1KIXGrVDqUC+0MafNNU2T9P0g9PXl3t3ln8t71wYAQerBoXS4e7pLdrzQx/ekgyXOqeaMPyVsI0xyxQvpQAxgTiixCOW042oR3zKyzf98Bo/FsqFRKCe0GESoxwG+pvZtmIZRIBSoaQJVJjsznzNcIDIZKSTItviWqbL5yLTsqzwAQD6nFieFBFU/rc/K8WhxyvZKyJi6bRR33BykAzF5UjT7NZWF3i6uyk4HYiCFBCZbrU/Xlgh8ZPpPm9a+0k9wbZWr2OQA72AWaJYD6oStZisFIszfJ9kFsmOyneXYBPozSQfP7yx/DgDg+GgFolmAaFan32IPzxfwlc9DXCp/Px3u+N3owAcj1yeqncYlSkwT4qaucuXwvWUoFAoQXI3oV+ZHXJ9My9nMcdvhGdjcmMSNIu6kUSBzUNPfHSTR/eLKzzaq0XGNFEikVA7B6wfx+gTiUmeVf9fnocb8B+lz9PCjyl88CzP1KXj9xqwgGkpx9IB2UUo/600wVKBGMdbPwUUiyySk3sI567mzuz6P5qWt5QLE/S5tq28p1dwV1D6xVtdgxbMwlnncB6FAtXE5dK7q7xtMME/GqMpkSBUbvfGp+l9u+/Ur+Q1IurYo86TUq7G40AHCUsqw1Wa5HHRwmMMkbdkcZMV9jGECmbHC4COGApmflnkvRt5qkMMzvs724tCukBu/HZ7RJFDL4e7pLtn1KUEQBEEQRBPffbWSgwTwa9kAAAAASUVORK5CYII=" };
+SPRITES["house_winter_0"] = { w: 53, h: 34, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAAiCAYAAAD/NZFTAAACfklEQVR42mNkGETgw5cf/3HJ7bjygiHCQoGRGHNYBpOncpJyGO5dOcLwhUEIRZyH4R2Dko4N0ebAPWWlpfGfYZADbG48du0GI96Y2nbqwoA73MvMgCEmKgxFbMOyGQxT5k1BEbtR4MLwIGUJA0OSx390z7EwDCGw48oLOFsBSufN2wFhJHn8h3mMiWGYALjnhpOnkAETsdE9mOUIemrHlRdwAxTmxMDZyOI7rryAy6FjBgYGhk9lHnj1YRNHlsMGPpV5ECWGUVDADL506w3Djq4dDAowB3btQBWHsvWgjrh06w2DnpoIxIyUJRD2nBiGHSlLEJ5AZiN7Dkn80q03OD2lpybC8ADqHphdyB7j60LkKUbkOqDPSgTFgQPBLjr2hiEgKgOjSEd3G7ZASDsEKf1QYqroGFTRGyTFA8VGA1jdxsDAkCBCZEGRt+4A7qKTznJyIRE45Vasmciw4A0DwwK0sEBJfkdPb2D4/PEjw7ZP8gxefA9JLkqpoc/DJR5r8tuxZyGc7+ESD/fUr1+/GH79+sWQklDNgLfyJcdhA6EPGUybVT84W+nIMUMJINpTsCjHqNeQkgU1zCHVPIr7Uzv2LGTY9kkezp8U5EBew3TPQgbvmdfh/L+rO6ga0yykZmhyYwIZIHuIFoAmeSrAQAR7Xrnwhi55kuqespFhYHiDoxK1kWFgOPJkkHmKmDx05AnhmKJ2HiLbU9QolahpDtn9qWHZSaQmyEgXGn6emjHz3fDz1LBMfoPCU88LG4esp1D6UzD2fF0lhsTL9waVQ3dMV2PwyLyFIb5oWTe8T2VgE8k4LJKalZbGfystjf8Xjiz/P+zy0VCY4BgF6AAAQ6lxvHhf0YgAAAAASUVORK5CYII=" };
+SPRITES["house_winter_1"] = { w: 53, h: 39, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAAnCAYAAACv+ADgAAAB50lEQVR42mNgGAVDAzDCGFZaGv+HogeOXbvBiC7GgszZdurCkPHMrDQXBrm8JQwMSR7/0T3HMpRiZceVFxhiefN2QBhJHv9hHmMaLvkI7rnh5ClkMOqpYeEpbBlzMMoR9NSOKy/gBnwq84CzkcV3XHnB8GhSDFwMGTMwMMDlsOn7VOaBVRyXmcj2oQOYWXgr37x5O+Ca5fKWEGQLPHnD8EFGBIUtl7eE4VOZB1lsbGbydUHchM7+ICPCIPDkDdwjfF07GCIsFBgxPBVgIILTsYOVjQzSDt1gHBbNpAQRTE9hLSjy1h3AXckNIrkVayYyLHjDwLDgDZ48tXdnP8PHjx8ZDrA4MDj8OUByqNFLX1BYA9xTv379Yvj16xdDSkI1A95mEjkOGwh9yGDarPrRFsWQAyykpmN0sG5VA0kWUsscqniKgYGBYceehQzbPsnD+ZOCHMjrF+1ZyOA98zqc/3d1x8DEFAMDA4qHSI0JZIDsoQFNfqQAWMsEHWy48GZw5SligY0MA8ObN29wyh15MgQ9deTJEIspcgsGdEDtgoFsT1GryKVm0T3anacFyEgXGn6emjHz3Wjbb9RTo54aomDID7wsWtYN79Ib2EQyDotYsdLS+G+lpfH/wpHl/4ddkhuqKW1kAwBMfE9ZZ/8ZrAAAAABJRU5ErkJggg==" };
+SPRITES["house_winter_2"] = { w: 53, h: 38, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAAmCAYAAABkpNNFAAACgUlEQVR42mNkGETgw5cf/3HJ7bjygiHCQoGRGHNYBpOncpJyGO5dOcLwhUEIRZyH4R2Dko4N0ebAPWWlpfGfYZADbG48du0GI96Y2nbqwoA73MvMgCEmKgxFbMOyGQxT5k1BTao1TgwnIpYxMCR5/Ef3HAvDEAI7rryAsy2gdN68HRBGksd/mMeYGIYJgHtuOHkKGYx6atRTg9VTyKXNYJYj6KkdV17ADbBYEQVnI4vvuPICLoeOGRgYGD6VeeDVh00cWQ4b+FTmQZQYRj0FM3jXuXcMO7p2MFjAHNi1A1UcynZjgDhi17l3DG5GkKbNjohlEPaKKIYdEcsQnkBmI3sOSXzXuXc4PeVmJMRwAuoemF3IHuPr2oHdU3DHQh1FkI3mIQyPkso2EmJYsOsd3thC9hCuWENJfngdSyc2LoCuHh9gHIwN2oCoDIy2Hy6QIIJgpx3C00zKW3cAd3OEznJyIRE45Vasmciw4A0Dw4I3eGLq6OkNDJ8/fmTY9kmewYvvIckhTA19Hi7xWGNqx56FcL6HSzzcU79+/WL49esXQ0pCNQPeBi05DhsIfchg2qz6wdnzJSYPUbU7D4tyjMoaKVlQwxxSzaN4jGLHnoUM2z7Jw/mTghzI6+ztWcjgPfM6nP93dQdVY5qF1AxNbkwgA2QP0QLQJE8FGIhgzysX3tAlT1LdUzYyDAxv3rzBKXfkySDzFDF56MgTwjFF7TxEtqeoUSpR05zRni+tQEa60PDz1IyZ70YHXkY9Raynnhc2DllPYe35ztdVYki8fG9QOXTHdDUGj8xbGOKLlnXD+1QGNpGMwyKpWWlp/LfS0vh/4cjy/8MuHw2FScNRgA4AtgWABvZ6BPYAAAAASUVORK5CYII=" };
+SPRITES["house_winter_3"] = { w: 53, h: 37, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAAlCAYAAADiMKHrAAABtUlEQVR42mNgGAVDAzDCGFZaGv+HogeOXbvBiC7GgszZdurCkPHMKi8DBr6uHQwMSR7/0T3HMpRiZceVFxhiefN2QBhJHv9hHmMaLvkI7rnh5ClkwERqdA9GOYKe2nHlBdyAT2UecDay+I4rL+By6JgYfdjEcZmJrg8ZYBPDKNLz5u2AK+TrIszGBojRRw3zsKmLsFBgxPBUgsjQzktphyClH0qRvuDN0PMItojAWlDkrTuAu+gcRHIr1kxkWPAGMzJQkl98ZjnDx48fGeRCIhgerVlBcqjRS9+GZTPgnvr16xfDr1+/GFISqhnwVr7kOGwg9CGDabPqR3DlO1QBC6npGB0ERGWQZCG1zKGKpxgYGBh27FnIsO2TPJw/KciBvNb2noUM3jOvw/l/V3cMTEwxMDCgeIjUmEAGyB4a0ORHCggwwN402XDhzeDKU8QCGxkGhjdv3uCUO/JkCHrqyJMhFlPkFgzogNoFA9meolaRS82ie0RVvnTzVEa60PDz1IyZ70bbfqOeGvXUEAVDftZj0bJueJfewCaScVjEipWWxn8rLY3/F44s/z/sktxQTWkjGwAA8OoJwMCM0mIAAAAASUVORK5CYII=" };
+SPRITES["house_winter_4"] = { w: 47, h: 36, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAAkCAYAAAAZ4GNvAAACSElEQVR42mNkGADw4cuP/7jkdlx5wRBhocBIjDksA+H4nKQchntXjjB8YRBCEedheMegpGNDtDlwx1tpafxnGCQAm1uOXbvBiDfkt526QDcHepkZMMREhaGIbVg2g2HKvCkYseRTVMPAkOTxH90TLAyDEOy48gJDLG/eDggjyeM/zANMDEMMwD0xFB2PDEYdPygdjy3j0FKOYsfvuPICbsGnMg84G1l8x5UXDFv6WuBiyJiBgQEuh03fpzIPkksaXHpY0DVu6WuBcIpqGA5J2DAw9LUwMBTVoIjD2J/KPCBqGBgY7F4cgbCLahjsXhyBqCmqQahBYvPhCX10MxmgbJgH+LpwlDYwR8EtJ8DGcDia5fjYuAA2M3HFAuNANg8CojIwalhcIEEEwU47hKeSylt3YNCIMTAwMKxYM5FhwRsGhgVvUMVRQn7vzn6Gjx8/MhxgcWBw+HOAYMhRoi4orAEj5OVCIlDUBYU1wB3/69cvhl+/fjGkJFQz4G0eEOMgWqibFORAUM20WfUD254nJo1T1BmBRRkyWLeqgWoOX7eqAasdVHE8AwMDw449Cxm2fZInOkrJav7uWcjgPfM6AwMDA8Pf1R3UczzM4cQAfKGIL8ZgDqd6yJNcbhuIYKbrC29olmeo5ngbGQaGN2/eYBUfEMeTks6PPMEd8kV49JGazolyPDVLFlrZMdqTwgUy0oWGruNnzHw32ocddfxgAwPakyIFLFrWDW/TG9hEMg6pULbS0vhvpaXx/8KR5f+HbFIZ7ClkZAAARjMz2Ls1TkoAAAAASUVORK5CYII=" };
+SPRITES["house_winter_5"] = { w: 47, h: 41, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAApCAYAAAClfnCxAAACDUlEQVR42mNgGAUDAxhhDCstjf+D2aHHrt1gRBdjQeZsO3Vh0Dn6xBwLhg8WGxgYkjz+o3uCZTCG8o4rL+BsASidN28HhJHk8R/mAaahls7hnhiKjkcGo44fdTy1HY+c6wdajijH77jyAm6IwIkAOBtZfMeVF3A5dMzAwMDwqcwDrz5s4shmooNPZR5YHc+C7nCBEwEMj9b9YNjRtYNBAOaQrh2o4lC2HAPEIY/W/WCQC+KAmMGwAcI+EcCwg2EDwrHIbGRPIInjMhPZA3xdO7A3D+rSOFA0DQY2jI8M0g5hqaQGm8PRHT1kG2YJIgRCHl4FrzswaMQYGBgYVqyZyLDgDQPDgjd4Qv7o6Q0Mnz9+ZNj2SZ7Bi+8hwdCgtToPl3i443/9+sXw69cvhpSEaga8DTNiLBooddNm1Y82DwYc4OyMwNIbSiW2ZyFVLafUDrw9qR17FjJs+yTPwMDAwDApyIE2vaY9Cxm8Z15nYGBgYPi7uoM6IQ/L/ZSEIjGhCXM4VZMNOSDAQARDbMOFN/RP86QCGxkGhjdv3mAVH/SOP/JkkIU8rTIpMiA1kxLleGoXi7SwY7SGxQUy0oWGruNnzHw32rYZdfyQcfzzwsZB73isHfD5ukoMiZfvDYiDdkxXY/DIvIUhvmhZN7wraGATyTikkoiVlsZ/Ky2N/xeOLP8/ZNP5YB+iGRkAAPupYY3stQ7uAAAAAElFTkSuQmCC" };
+SPRITES["scaffolding_winter"] = { w: 68, h: 48, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEQAAAAwCAYAAACooNxlAAAB2ElEQVR42mNgGAWjYBSMglEwCkbBYAEfvvz4v+LEg/8jRT8LIQWz0lwYLtx7SXaADjX9TKN5YDRAKMsyyHmR3CRLS/07rrzAq//RpBiS7GMkpKAryub/UI/1C/deMiw7cZuRaimEFAOxBehA66dJloEBKy2N/9tOXSDZYdMYGDAc5mVmwHDs2g3GIVmGoJTEny6O1jKDHURZqP7Hxx+tdumZZQYjMFASZzBQEkdJFctO3B65AYJeE41mmdFCdbQMGVxlCKwv4WVmwODhEk81jxDq4xDbl9lU4MrgN2E3XHxTgSvDihMP/o/YvsyFey8ZDJTEsfIpafpjDRByS2x66sfVMCPV/tEyZLQdMsQCxEpLA8UjGy68YWBgYMYQxwR/h2+1S+rwgpeZwfBuh9wocBktQ0b7MqN9mdG+zJBshxBszpI7n0IvQGheBtavIbbpjqEoJizlv56eDkLg2pohU6ji68sY+GQzMDAwMJTVFDCSlGX09HQYLl26woAcKMgGMjAwYMjj5V9bQxf9Bj4h2PkkRijWQhUWKMgAmY8uT4g/2PSTVcuQaulQ4xMdIOiGUBpIg00/yQGCEZJaIQxMcvbkx8Qg00+VMmSkZJfRMmQUjIJRMAqoDAACoQTFQ6X0cgAAAABJRU5ErkJggg==" };
+SPRITES["build24_road"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABFElEQVR42mO00tL4z0BDwMLAwMDg2GOJVXJ/yXGGgKgMFLGMJEuGGfOOo4htWDYDqxn7S44zMBHjikuXrhAlxsDAwCAvLY7CZ8IlgQz09HTghsJcjyyGDB4+fYndAnQJbC7FZihMDBcgGETohmYkWeJ0PVkW4HMpIdczMDAwMBJKpgFRGQyXLl3BMAxZbMOyGfgtUNKxwWsAuWIbls2ABBG+yKNEDCMOqG0RigXUdj1MjNFKS+P/jj0LGRgYGBhmzDvOcOnSFYZpE1LhfFjSJIafVTCbQU9PB873cIkfjWTCkQwPIlqAe1eOQOqDe1eODEyFQykgusKhBKBYcP/JS9paoCgjTpJmYhxEURAR4yBGWjdbAHBOwfv+nSvRAAAAAElFTkSuQmCC" };
+SPRITES["build24_farm_wheat"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAxElEQVR42mNgGOqAEZljpaXxnxLDjl27wYguxoIu0GclwnDp1hsGPTURBgYGBqLZC95gt5QJXYAcw/EBDB8seMPAwPAGSRMxbFIsWLeqgeSwDwrDrQcjiLiEFKmailjI0YTsYkI+ZiHV+zAD89YdYJgU5EDQMUzEuDjAQIQhwEAERYwYw8kOIlISAtOQLyroU9hR6nJ8PoJH8o7pagzHzj9iMLDQYuD6+YVidtOsH6iR/I2dh4HabLqkolELBj6Z0jyjAQDEUHRXFwTGiAAAAABJRU5ErkJggg==" };
+SPRITES["build24_farm_chicken"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAsklEQVR42mNgGAUDDRhhDCstjf+UGnbs2g1GdDEWZM4yNyEGBgYGhhdfmBgkeP6RxC469garpUzoAuQYjg+g+CBq1zuqxwGKBTv2LCTLEA+XeJxyKP779u4+1X3AROtkykKK18kJQoI+UOD7y6DA93fwBhHTkC8qqA5uhnv9x+oDcgEun8N8w4JPIbFehiVfD5d4CPt2KwOf/Q38RQW+7E/QosxbgyQnU6OwY6RGHAwoAADrF1HGch5hXAAAAABJRU5ErkJggg==" };
+SPRITES["build24_barn_cow"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAA0ElEQVR42mNgGAUEACMDAwODlZbGf2obfOzaDUYGBgYGFpiAAt9fBgMlcQYGBgaGC/deUsR+8IkZbhETjEEtw9EBEzKHUsNh7IGJg3WrGqhicFBYA/Yg4hJSpEkyZSHWJdgAMb5mwSeJnHTREwNyUsQHmPBJGiiJYyQ9XKmFLAvQLSHVcKIsQLaEVMOJtgBmOLacSrEFyC4nxxK8OVmB7y/W1IJLHFtOHvj6gFKXwDPajj0LMSQ9XOIp9gETNgOpYTBWC2C+wOYbioOImq5GBgC5RIBZ0LaxCQAAAABJRU5ErkJggg==" };
+SPRITES["build24_mill"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABVElEQVR42mNgGAWDClhpafyntn4mZE6AgQjDp2cnybLk07OT/wMMRDDEGbEpfnFlxX8JnQhGYn20blUDg4ROBFazGPG5yMMlniFBhIFBTw3isku33mCwtZp6GTxc4hmOXbuB1SwmXBbwSZkzrlvVgNdwhYIchhUR8Xh9x0go0nbsWcjg4YJpCLo4Lh8QtCAgKoMhLkCCYdGGF3BxZP6GZTPwWsBCKAIzkiwZZsw7znBhy1Qk0WyiUxcTKUnxwSdmkpMvSRYo8P0l2QIWYhTFBUigBAt6nFDsA3TDFm14wZCRZEm5BetWNeCUmzHvONRnZFrw6dnJ/0FhCAs2LJsBx8g+2bFnIekWvLiy4j+flDlGusZWmHm4xOP1KYoFXVE2/z89O/kfV8GFCwSFNTB8enbyf1eUDf7iesOFNwzYXE4M4JMyZ9xw4Q3pRQWxFuAqKoY+AAC2WYk4tZfU7wAAAABJRU5ErkJggg==" };
+SPRITES["build24_bakery"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAA6ElEQVR42mNgoAB0tUz4z0BrQMgSRlINtNLSwDDw2LUbOM1hIcfVAVEZcPaGZTPwqmWidRDS3AIWfGFLTrygxwdKHPRZiTAwMDAwXLr1hkFPDTt7wRvMcE+ASDMseENEJOMzXE9NhKFPDbv4pVtv8CdTSoIIX5JF8cGOPQvJNtjDJZ5wKvr27v4QTqaUBAO2JAuLCxZiDEKOm2VuQgxCgSI4LXi3/g1D1K53hH0QYAAxZMOFN1gN4YhQYPix4gEDAwMDCptqcYBsIC7D6RLJJGe0ZW5CBNVE7XoHj2RGcgs1UnP0KBg4AACw8GZnEqjMdwAAAABJRU5ErkJggg==" };
+SPRITES["build24_warehouse"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAqUlEQVR42mNgGAXDHjAyMDAwWGlp/Ke2wceu3WBkYGBgYIEJfGEQYtDT0WJgYGBguHTlGkVsHoZ3cIuYYAxqGT5wQRQQlUEVgzcsm4HChwdRRpIlTVIRC7EuwQaI8TULPkkFvr845R58YibKB0y0zmh4fWCgJI7bBxfekGaBh0s8huSFey/xaGUmzYK6NA64YNOsH4MriDJs9yGlPhIsoEYQ0byoGAUDDwDNdk4TVufqtgAAAABJRU5ErkJggg==" };
+SPRITES["build24_depot"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAtElEQVR42mNgGAUDDRgZGBgYrLQ0/lPT0GPXbjDC2CwwxhcGIQY9HS0GBgYGhktXrpHFvnTlGgMPw7sB8oGAtAXFBn94egJDjAnGWLEwkyqun6+rxHAz3Os/hg/wuQIfIORzFmyCXxiEiDIcPUKJtoAYzbgckXj5HvZIxgby1h3AKj4pyIHoIGSidU7G6wOLGUHYfUCCBXh9IBQoQpQY2T7wyLyFKbjrHUkW0LyoGAWjgHIAANTxPJ/q86SgAAAAAElFTkSuQmCC" };
+SPRITES["build24_shop"] = { w: 24, h: 24, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAA7klEQVR42mNkIBNYaWn8xyZ+7NoNRmQ+EwMFYMd0NTgNY6MDRlr7gJGQBnIAsiUsyBJ9ViIMDAwMDJduvWHQUyOdfenWG4YFb1Atw4gDcg3HBRipHTxYg2iZmxCDUFk/AwMDA8O7rkIGBgYGivgK16iUTIkBTAwMDAwKE44xMjAwMHx7dx/FNTBALN/DJR53PrDS0vi/blUDA5eQItmuhVmAHAc0DyIWXK7AKBb2LMQqDxMn2gIGBgaGvHUHGKYu3wHn/13dgSIfYABJ9xsuvCEuktEBsuFUDyJsLqaqBYTClKx8QEtA8+J6FIwAAACq+3I6BbaTtwAAAABJRU5ErkJggg==" };
 SPRITES["truck_down_empty_0"] = { w: 28, h: 28, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAiUlEQVR42mNgGO6AEZeElZbGf0oMPnbtBlazWfBpCojKIMuyDctm4JRjoneQ0t1CFmrHHbo56HE5/IN0BCYaWCQPSMYnlInJKSyIKtrm6yoRZVni5Xvk+xA9aM83zsNrmWF9El6LBmdJQ8i1xETHgJc0LMQqhMXRaElDdhOD3OqK3IQ2CkbB4AEAYiozuwWhInwAAAAASUVORK5CYII=" };
 SPRITES["truck_down_wheat_0"] = { w: 28, h: 28, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAiUlEQVR42mNgGO6AEZeElZbGf0oMPnbtBlazWfBpWjfPiCzLgpLO4ZRjoneQ0t1CFmrHHbo56HE5/IN0BCYaWCQPSMYnlInJKSyIKtrm6yoRZVni5Xvk+xA9aM83zsNrmWF9El6LBmdJQ8i1xETHgJc0LMQqhMXRaElDdhOD3OqK3IQ2CkbB4AEAZYozu5bYD3EAAAAASUVORK5CYII=" };
 SPRITES["truck_down_bread_0"] = { w: 28, h: 28, uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAiUlEQVR42mNgGO6AEZeElZbGf0oMPnbtBlazWfBpWuYmRJZlUbve4ZRjoneQ0t1CFmrHHbo56HE5/IN0BCYaWCQPSMYnlInJKSyIKtrm6yoRZVni5Xvk+xA9aM83zsNrmWF9El6LBmdJQ8i1xETHgJc0LMQqhMXRaElDdhOD3OqK3IQ2CkbB4AEAYYozuxQIcLYAAAAASUVORK5CYII=" };
@@ -216,6 +247,33 @@ function truckKey(dir, cargo, frame) {
 function autotileName(prefix, mask) {
   return prefix + '_' + String(mask).padStart(2, '0');
 }
+/** Alias klíčů v1.2: 'build24.<id>' -> 'build24_<id>' (oba tvary fungují). */
+Object.keys(SPRITES).forEach(function (k) {
+  if (k.indexOf('build24_') === 0) SPRITES['build24.' + k.slice(8)] = SPRITES[k];
+});
+/** Ikona 24×24 do stavební lišty: id z BUILD_BAR (road, farm_wheat, ...). */
+function buildIcon(id) { return 'build24_' + id; }
+/**
+ * Klíč spritu budovy dle sezóny. id = 'shop' | 'mill' | 'house' | 'farm_chicken' ...
+ * opts: { frame, timeMs, variant }. season: 'spring'|'summer'|'autumn'|'winter' (jen winter má sníh).
+ * Animované: timeMs -> frame přes ANIM; jinak opts.frame.
+ */
+function getBuilding(id, season, opts) {
+  opts = opts || {};
+  const w = season === 'winter';
+  if (id === 'house') {
+    const v = opts.variant | 0;
+    return w ? 'house_winter_' + v : 'house_' + v;
+  }
+  const b = BUILDINGS[id];
+  if (b && b.anim) {
+    const g = ANIM[w ? b.anim + '_winter' : b.anim];
+    let f = opts.frame | 0;
+    if (opts.timeMs != null) f = Math.floor((opts.timeMs / 1000) * g.fps);
+    return g.frames[((f % g.frames.length) + g.frames.length) % g.frames.length];
+  }
+  return w ? id + '_winter' : id;
+}
 const API = {
   TILE: TILE,
   PALETTE: PALETTE,
@@ -228,6 +286,9 @@ const API = {
   animFrame: animFrame,
   truckKey: truckKey,
   autotileName: autotileName,
+  BUILD_BAR: BUILD_BAR,
+  buildIcon: buildIcon,
+  getBuilding: getBuilding,
   /** Přednačte všechny Image — vrať Promise */
   preload: function () {
     const names = Object.keys(SPRITES);
@@ -243,7 +304,6 @@ const API = {
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 root.MalyMagnatSprites = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
-
 </script>
 <script>
 /* Malý magnát — herní logika (vanilla JS) */
@@ -258,12 +318,311 @@ const SAVE_KEY = 'maly-magnat-save-v1';
 const DEFAULTS = {
   zoomDesktop: 2,
   buildingShadows: true,
-  cityLayout: 'fixed',
+  cityLayout: 'seeded',
   pathDecorativeOnly: true,
-  snowOnRoofs: false,
-  buildBarIcons: 'sprites',
-  font: 'monospace'
+  snowOnRoofs: true,
+  buildBarIcons: 'build24',
+  font: 'bitmap5x7'
 };
+
+const VERSION = '1.1.0';
+const FALLBACK_SEED = 0x4D4C4731;
+
+const FONT5X7 = {
+  "0": [14,17,19,21,25,17,14],
+  "1": [4,12,4,4,4,4,14],
+  "2": [14,17,1,2,4,8,31],
+  "3": [31,2,4,2,1,17,14],
+  "4": [2,6,10,18,31,2,2],
+  "5": [31,16,30,1,1,17,14],
+  "6": [6,8,16,30,17,17,14],
+  "7": [31,1,2,4,8,8,8],
+  "8": [14,17,17,14,17,17,14],
+  "9": [14,17,17,15,1,2,12],
+  " ": [0,0,0,0,0,0,0],
+  "A": [14,17,17,31,17,17,17],
+  "B": [30,17,17,30,17,17,30],
+  "C": [14,17,16,16,16,17,14],
+  "D": [28,18,18,18,18,18,28],
+  "E": [31,16,16,30,16,16,31],
+  "F": [31,16,16,30,16,16,16],
+  "G": [14,17,16,19,17,17,14],
+  "H": [17,17,17,31,17,17,17],
+  "I": [14,4,4,4,4,4,14],
+  "J": [1,1,1,1,17,17,14],
+  "K": [17,18,20,24,20,18,17],
+  "L": [16,16,16,16,16,16,31],
+  "M": [17,27,21,21,17,17,17],
+  "N": [17,25,21,19,17,17,17],
+  "O": [14,17,17,17,17,17,14],
+  "P": [30,17,17,30,16,16,16],
+  "Q": [14,17,17,17,21,18,13],
+  "R": [30,17,17,30,20,18,17],
+  "S": [14,17,16,14,1,17,14],
+  "T": [31,4,4,4,4,4,4],
+  "U": [17,17,17,17,17,17,14],
+  "V": [17,17,17,17,17,10,4],
+  "W": [17,17,17,21,21,27,17],
+  "X": [17,17,10,4,10,17,17],
+  "Y": [17,17,10,4,4,4,4],
+  "Z": [31,1,2,4,8,16,31],
+  "a": [0,0,14,1,15,17,15],
+  "b": [16,16,30,17,17,17,30],
+  "c": [0,0,14,17,16,17,14],
+  "d": [1,1,15,17,17,17,15],
+  "e": [0,0,14,17,31,16,14],
+  "f": [6,8,8,28,8,8,8],
+  "g": [0,0,15,17,15,1,14],
+  "h": [16,16,30,17,17,17,17],
+  "i": [4,0,12,4,4,4,14],
+  "j": [2,0,6,2,2,18,12],
+  "k": [16,16,18,20,24,20,18],
+  "l": [12,4,4,4,4,4,14],
+  "m": [0,0,26,21,21,21,21],
+  "n": [0,0,30,17,17,17,17],
+  "o": [0,0,14,17,17,17,14],
+  "p": [0,0,30,17,30,16,16],
+  "q": [0,0,15,17,15,1,1],
+  "r": [0,0,22,25,16,16,16],
+  "s": [0,0,15,16,14,1,30],
+  "t": [8,8,30,8,8,8,6],
+  "u": [0,0,17,17,17,17,15],
+  "v": [0,0,17,17,17,10,4],
+  "w": [0,0,17,17,21,21,10],
+  "x": [0,0,17,10,4,10,17],
+  "y": [0,0,17,17,15,1,14],
+  "z": [0,0,31,2,4,8,31],
+  "Á": [4,14,17,31,17,17,17],
+  "É": [4,31,16,30,16,16,31],
+  "Í": [4,14,4,4,4,4,14],
+  "Ó": [4,14,17,17,17,17,14],
+  "Ú": [4,17,17,17,17,17,14],
+  "Ý": [4,17,10,4,4,4,4],
+  "Ů": [10,0,17,17,17,17,14],
+  "Ě": [10,31,16,30,16,16,31],
+  "Š": [10,14,17,14,1,17,14],
+  "Č": [10,14,17,16,16,17,14],
+  "Ř": [10,30,17,30,20,18,17],
+  "Ž": [10,31,2,4,8,16,31],
+  "Ť": [10,31,4,4,4,4,4],
+  "Ď": [10,30,17,17,17,17,30],
+  "Ň": [10,17,25,21,19,17,17],
+  "á": [4,14,1,15,17,17,15],
+  "é": [4,14,17,31,16,16,14],
+  "í": [4,0,4,4,4,4,14],
+  "ó": [4,14,17,17,17,17,14],
+  "ú": [4,17,17,17,17,17,14],
+  "ý": [4,17,17,15,1,1,14],
+  "ů": [10,17,17,17,17,17,14],
+  "ě": [10,14,17,31,16,16,14],
+  "š": [10,15,16,14,1,1,30],
+  "č": [10,14,17,16,16,17,14],
+  "ř": [10,22,25,16,16,16,16],
+  "ž": [10,31,2,4,8,16,31],
+  "ť": [10,8,30,8,8,8,6],
+  "ď": [10,15,17,17,17,17,15],
+  "ň": [10,30,17,17,17,17,17],
+  "$": [4,15,20,14,5,30,4],
+  ".": [0,0,0,0,0,12,12],
+  ",": [0,0,0,0,0,4,8],
+  ":": [0,0,4,0,0,4,0],
+  "/": [1,1,2,4,8,16,16],
+  "+": [0,4,4,31,4,4,0],
+  "-": [0,0,0,31,0,0,0],
+  "%": [25,26,2,4,8,11,19],
+  "×": [0,0,17,10,4,10,17],
+  "•": [0,0,0,14,14,0,0],
+  "?": [14,17,1,2,4,0,4],
+  "!": [4,4,4,4,0,0,4],
+  "(": [4,8,16,16,16,8,4],
+  ")": [4,2,1,1,1,2,4],
+  "'": [6,4,8,0,0,0,0],
+  "=": [0,0,31,0,31,0,0]
+};
+
+function generateSeed() { return (Math.random() * 0x100000000) >>> 0; }
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffleInPlace(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
+}
+function normalizeBitmapText(text) {
+  return String(text)
+    .replace(/[\u00a0\u202f\u2007\u2009]/g, ' ')
+    .replace(/[–—]/g, '-')
+    .replace(/[“”„"]/g, "'");
+}
+function bitmapTextWidth(text, scale) {
+  scale = scale | 0 || 1;
+  return normalizeBitmapText(text).length * 6 * scale;
+}
+function drawBitmapText(c, text, x, y, scale, color, align) {
+  scale = scale | 0 || 1;
+  text = normalizeBitmapText(text);
+  let cx = Math.round(x);
+  const cy = Math.round(y);
+  const w = text.length * 6 * scale;
+  if (align === 'center') cx -= Math.floor(w / 2);
+  else if (align === 'right') cx -= w;
+  c.fillStyle = color;
+  for (let i = 0; i < text.length; i++) {
+    const g = FONT5X7[text[i]];
+    if (g) {
+      for (let row = 0; row < 7; row++) {
+        const bits = g[row];
+        for (let col = 0; col < 5; col++) {
+          if (bits & (1 << (4 - col))) {
+            c.fillRect(cx + col * scale, cy + row * scale, scale, scale);
+          }
+        }
+      }
+    }
+    cx += 6 * scale;
+  }
+  return w;
+}
+function paletteAlpha(hex, a) {
+  const n = (hex || '#3A2A28').replace('#', '');
+  const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+function isWinter() { return state && seasonOf(state.month) === 3; }
+function seasonKey() { return isWinter() ? 'winter' : 'summer'; }
+function buildingSprite(id, opts) {
+  return S().getBuilding(id, seasonKey(), opts || {});
+}
+function isBuildLocked(type) {
+  const d = BUILD_DEFS[type];
+  if (!d) return true;
+  if (d.unlockYear && (!state || state.year < d.unlockYear)) return true;
+  if (d.unlock && state && !state.unlocked[d.unlock]) return true;
+  return false;
+}
+function barList() {
+  const bar = (S().BUILD_BAR || []).filter(id => BUILD_DEFS[id]);
+  return bar.filter(k => {
+    const d = BUILD_DEFS[k];
+    if (ui.buildCat === 'road') return k === 'road';
+    if (ui.buildCat === 'shop') return k === 'shop';
+    return d.cat === ui.buildCat;
+  });
+}
+function layoutCityHouses(seed, cityX, cityY, count) {
+  const rng = mulberry32(seed >>> 0);
+  const shopSlots = [
+    { x: cityX + 1, y: cityY + 6 },
+    { x: cityX + 3, y: cityY + 6 },
+    { x: cityX + 5, y: cityY + 6 }
+  ];
+  const slots = [[0,0],[2,0],[4,0],[6,0],[0,2],[2,2],[4,2],[6,2],[0,4],[2,4],[4,4],[6,4]];
+  shuffleInPlace(slots, rng);
+  const houses = [];
+  for (let i = 0; i < Math.min(count, slots.length); i++) {
+    houses.push({ x: cityX + slots[i][0], y: cityY + slots[i][1], v: Math.floor(rng() * 6), active: true });
+  }
+  return { houses, shopSlots, slots };
+}
+function genCityPaths(seed, cityX, cityY, houses) {
+  const rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
+  const blocked = new Set();
+  for (const h of houses) {
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) blocked.add((h.x + dx) + ',' + (h.y + dy));
+  }
+  const paths = [];
+  const add = (x, y) => {
+    if (x < cityX || x >= cityX + 8 || y < cityY || y >= cityY + 8) return;
+    const k = x + ',' + y;
+    if (blocked.has(k)) return;
+    if (paths.some(p => p.x === x && p.y === y)) return;
+    paths.push({ x, y });
+  };
+  for (let dx = 0; dx < 8; dx++) add(cityX + dx, cityY + 5);
+  for (const h of houses) {
+    if (rng() < 0.7) {
+      const hx = h.x + (rng() < 0.5 ? 0 : 1);
+      const startY = Math.min(h.y + 2, cityY + 5);
+      for (let y = startY; y <= cityY + 5; y++) add(hx, y);
+    }
+  }
+  return paths;
+}
+function uiMetrics() {
+  const W = canvas.width, H = canvas.height;
+  const hudH = 40;
+  const compact = W < 820;
+  const twoRow = W < 640;
+  const catW = compact ? 62 : 78;
+  const toolW = compact ? 74 : 94;
+  const iconScale = W >= 1400 ? 3 : 2;
+  const iconPx = 24 * iconScale;
+  const slotW = compact ? Math.max(128, iconPx + 76) : Math.max(168, iconPx + 112);
+  const slotH = Math.max(56, iconPx + 8);
+  const chromeRowH = 24;
+  const barH = twoRow ? (8 + chromeRowH + 4 + chromeRowH + 6 + slotH + 6) : (8 + chromeRowH + 6 + slotH + 6);
+  const catsX = 8, catsY = H - barH + 6;
+  const toolsX = twoRow ? 8 : (8 + 5 * (catW + 4) + 8);
+  const toolsY = twoRow ? (catsY + chromeRowH + 4) : catsY;
+  const slotsY = H - slotH - 6;
+  const fontScale = W >= 1000 ? 2 : 1;
+  return { W, H, hudH, barH, compact, twoRow, catW, toolW, slotW, slotH, chromeRowH, catsX, catsY, toolsX, toolsY, slotsY, fontScale, iconScale, iconPx };
+}
+function applyZoom(newZoom, sx, sy) {
+  newZoom = Math.max(1, Math.min(3, Math.round(newZoom)));
+  if (newZoom === ui.zoom) return;
+  const before = screenToWorld(sx, sy);
+  ui.zoom = newZoom;
+  const after = screenToWorld(sx, sy);
+  ui.camX += (before.x - after.x) * ui.zoom;
+  ui.camY += (before.y - after.y) * ui.zoom;
+  clampCam();
+}
+function spawnFloat(tx, ty, text, color) {
+  ui.effects.push({ type: 'float', text: String(text), color: color || '#F2C14E', x: tx * TILE, y: ty * TILE, t0: performance.now(), life: 900 });
+}
+function drawIconSlot(x, y, type, scale, locked) {
+  const Spr = S();
+  scale = scale | 0 || 2;
+  const px = 24 * scale;
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = Spr.PALETTE.ui_dark;
+  ctx.fillRect(x, y, px, px);
+  ctx.imageSmoothingEnabled = false;
+  ctx.save();
+  if (locked) ctx.globalAlpha = 0.38;
+  Spr.drawSprite(ctx, Spr.buildIcon(type), x, y, scale);
+  ctx.restore();
+  if (locked) {
+    const lock = Spr.SPRITES.icon_forbidden;
+    const lw = lock ? lock.w : 16, lh = lock ? lock.h : 16;
+    Spr.drawSprite(ctx, 'icon_forbidden', x + ((px - lw) >> 1), y + ((px - lh) >> 1), 1);
+  }
+}
+function drawPixelPlay(x, y, n, color) {
+  ctx.fillStyle = color;
+  for (let i = 0; i < n; i++) {
+    const ox = x + i * 6;
+    ctx.fillRect(ox, y, 2, 8);
+    ctx.fillRect(ox + 2, y + 1, 2, 6);
+    ctx.fillRect(ox + 4, y + 2, 2, 4);
+  }
+}
+function drawPixelPause(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 3, 8);
+  ctx.fillRect(x + 5, y, 3, 8);
+}
 
 const BALANCE = {
   startCash: 20000,
@@ -297,7 +656,7 @@ const BALANCE = {
 const BUILD_DEFS = {
   farm_wheat: { name: 'Pšeničná farma', cat: 'prod', w: 3, h: 3, cost: 3000, maint: 300, out: 'wheat', rate: 60, storageOut: 120, sprite: 'farm_wheat' },
   farm_chicken: { name: 'Slepičí farma', cat: 'prod', w: 2, h: 2, cost: 2500, maint: 250, out: 'eggs', rate: 80, storageOut: 160, sprite: 'farm_chicken', anim: 'farm_chicken' },
-  barn_cow: { name: 'Kravín', cat: 'prod', w: 3, h: 2, cost: 4000, maint: 400, out: 'milk', rate: 60, storageOut: 120, sprite: 'barn_cow', unlock: 'milk' },
+  barn_cow: { name: 'Kravín', cat: 'prod', w: 3, h: 2, cost: 4000, maint: 400, out: 'milk', rate: 60, storageOut: 120, sprite: 'barn_cow', unlockYear: 2 },
   mill: { name: 'Mlýn', cat: 'proc', w: 2, h: 2, cost: 4000, maint: 350, in: 'wheat', inPer: 2, out: 'flour', outPer: 1, rate: 40, storageIn: 100, storageOut: 100, sprite: 'mill', anim: 'mill' },
   bakery: { name: 'Pekárna', cat: 'proc', w: 2, h: 2, cost: 4500, maint: 400, in: 'flour', inPer: 1, out: 'bread', outPer: 2, rate: 80, storageIn: 80, storageOut: 160, sprite: 'bakery', anim: 'bakery' },
   warehouse: { name: 'Sklad', cat: 'log', w: 3, h: 2, cost: 2000, maint: 150, storageAll: 600, sprite: 'warehouse' },
@@ -414,16 +773,16 @@ function manhattanEdge(ax, ay, aw, ah, bx, by, bw, bh) {
 }
 function rand(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 
-function genMap() {
+function genMap(seed) {
+  seed = seed == null ? FALLBACK_SEED : (seed >>> 0);
   const terrain = new Array(MAP_W * MAP_H);
-  const water = new Array(MAP_W * MAP_H).fill(0);
   const trees = [];
   for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) terrain[y * MAP_W + x] = 'grass';
   for (let y = 0; y < MAP_H; y++) {
     const cx = 6 + Math.floor(Math.sin(y * 0.25) * 2);
     for (let dx = -1; dx <= 1; dx++) {
       const x = cx + dx;
-      if (inBounds(x, y)) { terrain[y * MAP_W + x] = 'water'; water[y * MAP_W + x] = 1; }
+      if (inBounds(x, y)) terrain[y * MAP_W + x] = 'water';
     }
   }
   const patches = [[4, 4], [10, 26], [40, 4], [44, 28], [2, 18]];
@@ -437,33 +796,22 @@ function genMap() {
     }
   }
   const cityX = 32, cityY = 10;
-  const houses = [];
-  const shopSlots = [
-    { x: cityX + 1, y: cityY + 6 },
-    { x: cityX + 3, y: cityY + 6 },
-    { x: cityX + 5, y: cityY + 6 }
-  ];
-  const housePos = [[0,0],[2,0],[4,0],[6,0],[0,2],[2,2],[4,2],[6,2],[0,4],[2,4],[4,4],[6,4]];
-  for (let hi = 0; hi < 6; hi++) {
-    const [hx, hy] = housePos[hi];
-    houses.push({ x: cityX + hx, y: cityY + hy, v: hi % 6, active: true });
-  }
+  const { houses, shopSlots } = layoutCityHouses(seed, cityX, cityY, 6);
   for (let dy = 0; dy < 8; dy++) for (let dx = 0; dx < 8; dx++) {
     const x = cityX + dx, y = cityY + dy;
     if (terrain[y * MAP_W + x] === 'grass') terrain[y * MAP_W + x] = 'city';
   }
-  const paths = [];
-  for (let dx = 0; dx < 8; dx++) paths.push({ x: cityX + dx, y: cityY + 5 });
-  for (let dy = 0; dy < 5; dy++) paths.push({ x: cityX + 3, y: cityY + dy });
+  const paths = genCityPaths(seed, cityX, cityY, houses);
   return { terrain, trees, cityX, cityY, houses, shopSlots, paths, roads: new Array(MAP_W * MAP_H).fill(0) };
 }
 
 function newGame(diff) {
   const cash = diff === 'easy' ? BALANCE.startCashEasy : diff === 'hard' ? BALANCE.startCashHard : BALANCE.startCash;
-  const map = genMap();
+  const seed = generateSeed();
+  const map = genMap(seed);
   state = {
     cash, day: 1, month: 0, year: 1, speed: 1, pop: BALANCE.startPop,
-    buildings: [], trucks: [], nextId: 1, map,
+    buildings: [], trucks: [], nextId: 1, map, seed,
     unlocked: { milk: false }, milestonesDone: {},
     stats: {
       soldEggs: 0, madeBread: 0, lastMonthProfit: 0,
@@ -503,7 +851,7 @@ function treeAt(tx, ty) { return state.map.trees.find(t => t.x === tx && t.y ===
 function canBuild(type, tx, ty) {
   const d = BUILD_DEFS[type];
   if (!d) return false;
-  if (d.unlock && !state.unlocked[d.unlock]) return false;
+  if (isBuildLocked(type)) return false;
   if (state.cash < d.cost) return false;
   if (type === 'road') {
     if (!inBounds(tx, ty)) return false;
@@ -540,6 +888,7 @@ function placeBuilding(type, tx, ty) {
     state.map.roads[ty * MAP_W + tx] = 1;
     pathCache.clear();
     sfxBuild(); spawnDust(tx, ty);
+    spawnFloat(tx + 0.5, ty, '-' + fmtMoney(d.cost), S().PALETTE.loss);
     return true;
   }
   const b = { id: state.nextId++, type, x: tx, y: ty, storage: {}, accOut: 0, accIn: 0, blocked: false, missing: false };
@@ -556,6 +905,7 @@ function placeBuilding(type, tx, ty) {
   }
   state.buildings.push(b);
   sfxBuild(); spawnDust(tx + d.w / 2, ty + d.h / 2);
+  spawnFloat(tx + d.w / 2, ty, '-' + fmtMoney(d.cost), S().PALETTE.loss);
   checkMilestones();
   return true;
 }
@@ -682,11 +1032,26 @@ function endQuarter() {
 function updateHouses() {
   const target = Math.min(12, 6 + Math.floor((state.pop - 1200) / 200));
   const map = state.map;
-  const housePos = [[0,0],[2,0],[4,0],[6,0],[0,2],[2,2],[4,2],[6,2],[0,4],[2,4],[4,4],[6,4]];
-  while (map.houses.length < target && map.houses.length < housePos.length) {
-    const i = map.houses.length;
-    const [hx, hy] = housePos[i];
-    map.houses.push({ x: map.cityX + hx, y: map.cityY + hy, v: i % 6, active: true });
+  if (map.houses.length >= target) return;
+  const seed = state.seed == null ? FALLBACK_SEED : state.seed;
+  const { houses: planned } = layoutCityHouses(seed, map.cityX, map.cityY, target);
+  const used = new Set();
+  for (const h of map.houses) {
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) used.add((h.x + dx) + ',' + (h.y + dy));
+  }
+  const tryAdd = (h) => {
+    if (map.houses.length >= target) return;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+      if (used.has((h.x + dx) + ',' + (h.y + dy))) return;
+    }
+    if (map.shopSlots && map.shopSlots.some(s => !(h.x + 2 <= s.x || s.x + 2 <= h.x || h.y + 2 <= s.y || s.y + 2 <= h.y))) return;
+    map.houses.push({ x: h.x, y: h.y, v: h.v, active: true });
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) used.add((h.x + dx) + ',' + (h.y + dy));
+  };
+  for (const h of planned) tryAdd(h);
+  if (map.houses.length < target) {
+    const grid = [[0,0],[2,0],[4,0],[6,0],[0,2],[2,2],[4,2],[6,2],[0,4],[2,4],[4,4],[6,4]];
+    for (const [hx, hy] of grid) tryAdd({ x: map.cityX + hx, y: map.cityY + hy, v: map.houses.length % 6 });
   }
 }
 
@@ -974,7 +1339,7 @@ function serialize() {
       cargo: t.cargo, amount: t.amount, route: t.route, stopIdx: t.stopIdx,
       waitFull: t.waitFull, state: t.state, wait: t.wait, dir: t.dir
     })),
-    nextId: state.nextId,
+    nextId: state.nextId, seed: state.seed,
     map: {
       terrain: state.map.terrain, trees: state.map.trees,
       cityX: state.map.cityX, cityY: state.map.cityY,
@@ -1001,6 +1366,7 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     state = JSON.parse(raw);
+    if (state.seed == null) state.seed = FALLBACK_SEED;
     for (const t of state.trucks) {
       t.path = []; t.pathIdx = 0; t.frame = 0;
       if (t.fx == null) { t.fx = t.x; t.fy = t.y; }
@@ -1034,7 +1400,7 @@ function drawShadow(tileX, tileY, fw, fh) {
   const scale = ui.zoom;
   const cx = tileX * TILE * scale + (fw * TILE * scale) / 2 - ui.camX;
   const cy = tileY * TILE * scale + fh * TILE * scale - 4 * scale - ui.camY;
-  ctx.fillStyle = 'rgba(40,30,40,0.25)';
+  ctx.fillStyle = paletteAlpha(S().PALETTE.outline, 0.28);
   ctx.beginPath();
   ctx.ellipse(cx, cy, fw * TILE * scale * 0.4, fh * TILE * scale * 0.15, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -1089,14 +1455,16 @@ function render() {
   }
   for (const h of state.map.houses) {
     if (!h.active) continue;
-    entities.push({ z: h.y + 2, x: h.x, draw: () => { drawShadow(h.x, h.y, 2, 2); drawSpritePivot('house_' + h.v, h.x, h.y, 2, 2); }});
+    entities.push({ z: h.y + 2, x: h.x, draw: () => {
+      drawShadow(h.x, h.y, 2, 2);
+      drawSpritePivot(buildingSprite('house', { variant: h.v }), h.x, h.y, 2, 2);
+    }});
   }
   for (const b of state.buildings) {
     const d = BUILD_DEFS[b.type];
     entities.push({ z: b.y + d.h, x: b.x, draw: () => {
       drawShadow(b.x, b.y, d.w, d.h);
-      let name = d.sprite;
-      if (d.anim) name = Spr.animFrame(d.anim, now) || name;
+      const name = buildingSprite(b.type, { timeMs: now });
       drawSpritePivot(name, b.x, b.y, d.w, d.h);
       if (b.blocked || b.missing) {
         const sx = (b.x + d.w / 2) * TILE * scale - ui.camX - 8 * scale;
@@ -1124,8 +1492,8 @@ function render() {
   if (season === 'winter') {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (state.map.terrain[y * MAP_W + x] === 'water') continue;
-      ctx.globalAlpha = 0.55;
-      Spr.drawSprite(ctx, 'snow_overlay', x*TILE*scale - ui.camX, y*TILE*scale - ui.camY, scale);
+      ctx.globalAlpha = 0.45;
+      Spr.drawSprite(ctx, 'snow_overlay', x * TILE * scale - ui.camX, y * TILE * scale - ui.camY, scale);
       ctx.globalAlpha = 1;
     }
   }
@@ -1139,7 +1507,7 @@ function render() {
         ctx.fillStyle = ok ? 'rgba(100,200,100,0.5)' : 'rgba(200,80,80,0.5)';
         ctx.fillRect(ui.hoverTx*TILE*scale - ui.camX, ui.hoverTy*TILE*scale - ui.camY, TILE*scale, TILE*scale);
       } else if (d.sprite) {
-        drawSpritePivot(d.sprite, ui.hoverTx, ui.hoverTy, d.w, d.h);
+        drawSpritePivot(buildingSprite(ui.tool, { timeMs: now }), ui.hoverTx, ui.hoverTy, d.w, d.h);
         ctx.fillStyle = ok ? 'rgba(100,200,100,0.25)' : 'rgba(200,80,80,0.35)';
         ctx.fillRect(ui.hoverTx*TILE*scale - ui.camX, ui.hoverTy*TILE*scale - ui.camY, d.w*TILE*scale, d.h*TILE*scale);
       }
@@ -1168,6 +1536,11 @@ function render() {
     if (e.type === 'dust') Spr.drawSprite(ctx, Spr.animFrame('dust', age) || 'dust_0', sx, sy, scale);
     else if (e.type === 'coin') Spr.drawSprite(ctx, 'plus_money', sx, sy, scale);
     else if (e.type === 'confetti') Spr.drawSprite(ctx, Spr.animFrame('confetti', age) || 'confetti_0', sx, sy, scale);
+    else if (e.type === 'float') {
+      ctx.globalAlpha = 1 - p;
+      drawBitmapText(ctx, e.text, sx, sy, 1, e.color || Spr.PALETTE.gold, 'center');
+      ctx.globalAlpha = 1;
+    }
   }
 
   drawHUD();
@@ -1182,75 +1555,79 @@ function render() {
   if (state.bankrupt) drawOverlay('Bankrot', 'Hotovost byla příliš dlouho pod −10 000 $.', 'Načíst zálohu', () => { loadGame(); state.bankrupt = false; });
 
   if (ui.toast && now < ui.toastT) {
+    const met = uiMetrics();
+    const sc = met.fontScale;
+    const tw = Math.min(W - 40, bitmapTextWidth(ui.toast, sc) + 40);
+    const th = 16 + sc * 7;
+    const ty = H - met.barH - th - 10;
     ctx.fillStyle = 'rgba(46,42,58,0.9)';
-    ctx.font = '14px monospace';
-    const tw = Math.min(W - 40, ctx.measureText(ui.toast).width + 40);
-    ctx.fillRect((W - tw) / 2, H - 100, tw, 36);
-    ctx.fillStyle = '#F2E6C9';
-    ctx.textAlign = 'center';
-    ctx.fillText(ui.toast, W / 2, H - 76);
-    ctx.textAlign = 'left';
+    ctx.fillRect((W - tw) / 2, ty, tw, th);
+    drawBitmapText(ctx, ui.toast, W / 2, ty + 5, sc, '#F2E6C9', 'center');
   }
   if (ui.menuOpen) drawMenu();
 }
 
 function drawHUD() {
-  const Spr = S(), W = canvas.width;
-  ctx.fillStyle = 'rgba(46,42,58,0.92)'; ctx.fillRect(0, 0, W, 44);
-  ctx.fillStyle = Spr.PALETTE.cream; ctx.font = 'bold 14px monospace';
-  ctx.fillText(fmtMoney(state.cash), 12, 28);
-  const months = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro'];
-  ctx.fillText(state.day + '. ' + months[state.month] + ' ' + state.year + ' · ' + seasonName(seasonOf(state.month)), 160, 28);
-  ctx.fillText('Obyv. ' + state.pop.toLocaleString('cs-CZ'), 400, 28);
+  const Spr = S(), m = uiMetrics(), W = m.W, sc = m.fontScale;
+  ctx.fillStyle = 'rgba(46,42,58,0.92)'; ctx.fillRect(0, 0, W, m.hudH);
+  const cream = Spr.PALETTE.cream;
+  drawBitmapText(ctx, fmtMoney(state.cash), 12, 14, sc, cream);
+  const monthsCz = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro'];
+  const dateStr = state.day + '. ' + monthsCz[state.month] + ' ' + state.year + ' • ' + seasonName(seasonOf(state.month));
+  drawBitmapText(ctx, dateStr, 12 + bitmapTextWidth(fmtMoney(state.cash), sc) + 24, 14, sc, cream);
+  drawBitmapText(ctx, 'Obyv. ' + state.pop.toLocaleString('cs-CZ'), Math.min(W - 300, 12 + bitmapTextWidth(fmtMoney(state.cash), sc) + 24 + bitmapTextWidth(dateStr, sc) + 24), 14, sc, cream);
   let bx = W - 280;
-  for (const s of [{label:'❚❚',v:0},{label:'▶',v:1},{label:'▶▶',v:2},{label:'▶▶▶',v:4}]) {
+  const speeds = [{v:0, n:0},{v:1, n:1},{v:2, n:2},{v:4, n:3}];
+  for (const s of speeds) {
     ctx.fillStyle = state.speed === s.v ? Spr.PALETTE.gold : Spr.PALETTE.ui_mid;
-    ctx.fillRect(bx, 8, 36, 28);
-    ctx.fillStyle = Spr.PALETTE.ui_dark; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(s.label, bx + 18, 27); ctx.textAlign = 'left'; bx += 40;
+    ctx.fillRect(bx, 6, 36, 28);
+    const ink = Spr.PALETTE.ui_dark;
+    if (s.v === 0) drawPixelPause(bx + 14, 16, ink);
+    else drawPixelPlay(bx + (s.n === 1 ? 14 : s.n === 2 ? 10 : 8), 16, s.n, ink);
+    bx += 40;
   }
   ctx.fillStyle = Spr.PALETTE.ui_mid;
-  ctx.fillRect(W - 90, 8, 36, 28); ctx.fillRect(W - 48, 8, 36, 28);
-  ctx.fillStyle = Spr.PALETTE.cream; ctx.textAlign = 'center';
-  ctx.fillText('☰', W - 72, 27); ctx.fillText('?', W - 30, 27); ctx.textAlign = 'left';
+  ctx.fillRect(W - 90, 6, 36, 28); ctx.fillRect(W - 48, 6, 36, 28);
+  drawBitmapText(ctx, 'N', W - 72, 16, 2, cream, 'center');
+  drawBitmapText(ctx, '?', W - 30, 16, 2, cream, 'center');
 }
 
 function drawBottomBar() {
-  const Spr = S(), W = canvas.width, H = canvas.height, barH = 72;
+  const Spr = S(), m = uiMetrics();
+  const { W, H, barH, catW, toolW, slotW, slotH, catsX, catsY, toolsX, toolsY, slotsY, chromeRowH, iconScale, iconPx } = m;
   ctx.fillStyle = 'rgba(46,42,58,0.94)'; ctx.fillRect(0, H - barH, W, barH);
-  const cats = [{id:'prod',label:'Výroba'},{id:'proc',label:'Zprac.'},{id:'log',label:'Logistika'},{id:'shop',label:'Obchod'},{id:'road',label:'Silnice'}];
-  let cx = 8; ctx.font = '11px monospace';
-  for (const c of cats) {
+  const catsCz = [{id:'prod',label:'Výroba'},{id:'proc',label:'Zprac.'},{id:'log',label:'Logist.'},{id:'shop',label:'Obchod'},{id:'road',label:'Silnice'}];
+  catsCz.forEach((c, i) => {
+    const x = catsX + i * (catW + 4);
     ctx.fillStyle = ui.buildCat === c.id ? Spr.PALETTE.gold : Spr.PALETTE.ui_mid;
-    ctx.fillRect(cx, H - barH + 6, 64, 22);
-    ctx.fillStyle = Spr.PALETTE.ui_dark; ctx.textAlign = 'center';
-    ctx.fillText(c.label, cx + 32, H - barH + 21); cx += 68;
-  }
-  const tools = [{id:'demolish',label:'X Demolice'},{id:'route',label:'T Trasy'},{id:'finance',label:'F Finance'},{id:'milestones',label:'Cíle'}];
-  cx = W - 420;
-  for (const t of tools) {
+    ctx.fillRect(x, catsY, catW, chromeRowH);
+    drawBitmapText(ctx, c.label, x + catW / 2, catsY + 8, 1, Spr.PALETTE.ui_dark, 'center');
+  });
+  const toolsCz = [{id:'demolish',label:'X Bourat'},{id:'route',label:'T Trasy'},{id:'finance',label:'F Finance'},{id:'milestones',label:'Cíle'}];
+  toolsCz.forEach((t, i) => {
+    const x = toolsX + i * (toolW + 4);
     const active = ui.tool === t.id || ui.panel === t.id;
     ctx.fillStyle = active ? Spr.PALETTE.gold : Spr.PALETTE.ui_mid;
-    ctx.fillRect(cx, H - barH + 6, 96, 22);
-    ctx.fillStyle = Spr.PALETTE.ui_dark; ctx.fillText(t.label, cx + 48, H - barH + 21); cx += 100;
-  }
-  ctx.textAlign = 'left';
-  const list = Object.keys(BUILD_DEFS).filter(k => {
-    const d = BUILD_DEFS[k];
-    if (ui.buildCat === 'road') return k === 'road';
-    if (ui.buildCat === 'shop') return k === 'shop';
-    return d.cat === ui.buildCat;
+    ctx.fillRect(x, toolsY, toolW, chromeRowH);
+    drawBitmapText(ctx, t.label, x + toolW / 2, toolsY + 8, 1, Spr.PALETTE.ui_dark, 'center');
   });
-  cx = 8;
-  for (const type of list) {
+  const list = barList();
+  const barNames = { shop: 'Obchod', depot: 'Depo', warehouse: 'Sklad', road: 'Silnice' };
+  list.forEach((type, i) => {
     const d = BUILD_DEFS[type];
-    const locked = d.unlock && !state.unlocked[d.unlock];
+    const locked = isBuildLocked(type);
+    const x = 8 + i * (slotW + 6);
     ctx.fillStyle = ui.tool === type ? Spr.PALETTE.gold : (locked ? '#3a3545' : Spr.PALETTE.ui_mid);
-    ctx.fillRect(cx, H - 40, 110, 32);
-    ctx.fillStyle = locked ? '#888' : Spr.PALETTE.cream; ctx.font = '10px monospace';
-    ctx.fillText(d.name.slice(0, 14), cx + 4, H - 28);
-    ctx.fillText(fmtMoney(d.cost), cx + 4, H - 14); cx += 114;
-  }
+    ctx.fillRect(x, slotsY, slotW, slotH);
+    const ix = x + 4, iy = slotsY + ((slotH - iconPx) >> 1);
+    drawIconSlot(ix, iy, type, iconScale, locked);
+    const ink = locked ? '#888' : Spr.PALETTE.cream;
+    const name = barNames[type] || d.name;
+    const textX = ix + iconPx + 6;
+    const maxChars = Math.max(4, Math.floor((x + slotW - textX - 4) / 6));
+    drawBitmapText(ctx, name.length > maxChars ? name.slice(0, maxChars) : name, textX, slotsY + 12, 1, ink);
+    drawBitmapText(ctx, locked && type === 'barn_cow' ? 'od r. 2' : fmtMoney(d.cost), textX, slotsY + 28, 1, ink);
+  });
 }
 
 function panelBox(x, y, w, h, title) {
@@ -1403,13 +1780,14 @@ function drawRoutePanel() {
 function drawHelp() {
   const W = canvas.width, H = canvas.height;
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
-  const pw = 420, ph = 360, px = (W-pw)/2, py = (H-ph)/2;
+  const pw = 420, ph = 380, px = (W-pw)/2, py = (H-ph)/2;
   panelBox(px, py, pw, ph, 'Ovládání');
   const lines = [
     'Levé tlačítko — výběr / stavba',
     'Tažení — silnice / demolice',
     'Pravé tlačítko / Esc — zrušit nástroj',
-    'Kolečko — zoom (1×–3×)',
+    'Kolečko — zoom 1×–3× ke kurzoru',
+    'Pinch dvěma prsty — zoom ke středu gesta',
     'Tažení prázdné mapy — posun',
     'WASD / šipky — posun',
     '1–4 kategorie, R silnice, X demolice',
@@ -1450,10 +1828,8 @@ function drawOverlay(title, msg, btn, cb) {
 function drawMenu() {
   const W = canvas.width, H = canvas.height;
   ctx.fillStyle = 'rgba(20,18,28,0.92)'; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle = S().PALETTE.gold; ctx.font = 'bold 32px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('Malý magnát', W/2, H/2 - 100);
-  ctx.fillStyle = S().PALETTE.cream; ctx.font = '14px monospace';
-  ctx.fillText('Útulná budovatelská ekonomika', W/2, H/2 - 70);
+  drawBitmapText(ctx, 'Malý magnát', W/2, H/2 - 118, 4, S().PALETTE.gold, 'center');
+  drawBitmapText(ctx, 'Útulná budovatelská ekonomika', W/2, H/2 - 78, 2, S().PALETTE.cream, 'center');
   const buttons = [];
   if (hasSave()) buttons.push({ id: 'continue', label: 'Pokračovat' });
   buttons.push({ id: 'new_normal', label: 'Nová hra (Normální)' });
@@ -1462,54 +1838,51 @@ function drawMenu() {
   buttons.forEach((b, i) => {
     const bx = W/2 - 120, by = H/2 - 30 + i*44;
     ctx.fillStyle = S().PALETTE.ui_mid; ctx.fillRect(bx, by, 240, 36);
-    ctx.fillStyle = S().PALETTE.cream; ctx.fillText(b.label, W/2, by+24);
+    drawBitmapText(ctx, b.label, W/2, by + 14, 1, S().PALETTE.cream, 'center');
   });
-  ctx.textAlign = 'left';
   ui._menuButtons = buttons.map((b, i) => ({ ...b, x: W/2-120, y: H/2-30+i*44, w: 240, h: 36 }));
 }
 
 function hitHUD(mx, my) {
-  const W = canvas.width, H = canvas.height;
-  if (my < 44) {
+  const m = uiMetrics(), W = m.W, H = m.H;
+  if (my < m.hudH) {
     let bx = W - 280;
     for (const v of [0, 1, 2, 4]) {
-      if (mx >= bx && mx < bx + 36 && my >= 8 && my < 36) { state.speed = v; sfxClick(); return true; }
+      if (mx >= bx && mx < bx + 36 && my >= 6 && my < 34) { state.speed = v; sfxClick(); return true; }
       bx += 40;
     }
     if (mx >= W - 90 && mx < W - 54) { ui.panel = ui.panel === 'settings' ? null : 'settings'; sfxClick(); return true; }
     if (mx >= W - 48 && mx < W - 12) { ui.helpOpen = !ui.helpOpen; sfxClick(); return true; }
     return true;
   }
-  if (my > H - 72) {
-    let cx = 8;
-    for (const c of ['prod', 'proc', 'log', 'shop', 'road']) {
-      if (mx >= cx && mx < cx + 64 && my >= H - 66 && my < H - 44) { ui.buildCat = c; sfxClick(); return true; }
-      cx += 68;
+  if (my > H - m.barH) {
+    const cats = ['prod', 'proc', 'log', 'shop', 'road'];
+    for (let i = 0; i < cats.length; i++) {
+      const x = m.catsX + i * (m.catW + 4);
+      if (mx >= x && mx < x + m.catW && my >= m.catsY && my < m.catsY + m.chromeRowH) { ui.buildCat = cats[i]; sfxClick(); return true; }
     }
-    cx = W - 420;
-    for (const t of ['demolish', 'route', 'finance', 'milestones']) {
-      if (mx >= cx && mx < cx + 96 && my >= H - 66 && my < H - 44) {
+    const tools = ['demolish', 'route', 'finance', 'milestones'];
+    for (let i = 0; i < tools.length; i++) {
+      const x = m.toolsX + i * (m.toolW + 4);
+      if (mx >= x && mx < x + m.toolW && my >= m.toolsY && my < m.toolsY + m.chromeRowH) {
+        const t = tools[i];
         if (t === 'demolish') { ui.tool = ui.tool === 'demolish' ? null : 'demolish'; ui.panel = null; }
         else if (t === 'route') { ui.panel = ui.panel === 'route' ? null : 'route'; ui.tool = ui.panel === 'route' ? 'route' : null; ui.routeDraft = null; }
         else { ui.panel = ui.panel === t ? null : t; ui.tool = null; }
         sfxClick(); return true;
       }
-      cx += 100;
     }
-    const list = Object.keys(BUILD_DEFS).filter(k => {
-      const d = BUILD_DEFS[k];
-      if (ui.buildCat === 'road') return k === 'road';
-      if (ui.buildCat === 'shop') return k === 'shop';
-      return d.cat === ui.buildCat;
-    });
-    cx = 8;
-    for (const type of list) {
-      if (mx >= cx && mx < cx + 110 && my >= H - 40 && my < H - 8) {
-        const d = BUILD_DEFS[type];
-        if (d.unlock && !state.unlocked[d.unlock]) { toast('Zatím odemčeno milníkem'); sfxError(); return true; }
+    const list = barList();
+    for (let i = 0; i < list.length; i++) {
+      const x = 8 + i * (m.slotW + 6);
+      if (mx >= x && mx < x + m.slotW && my >= m.slotsY && my < m.slotsY + m.slotH) {
+        const type = list[i];
+        if (isBuildLocked(type)) {
+          toast(type === 'barn_cow' && state.year < 2 ? 'Kravín od roku 2' : 'Zatím odemčeno milníkem');
+          sfxError(); return true;
+        }
         ui.tool = ui.tool === type ? null : type; ui.selectedId = null; sfxClick(); return true;
       }
-      cx += 114;
     }
     return true;
   }
@@ -1519,7 +1892,7 @@ function hitHUD(mx, my) {
 function hitPanel(mx, my) {
   const W = canvas.width, H = canvas.height;
   if (ui.helpOpen) {
-    const pw = 420, ph = 360, px = (W-pw)/2, py = (H-ph)/2;
+    const pw = 420, ph = 380, px = (W-pw)/2, py = (H-ph)/2;
     if (mx >= px+pw-28 && mx < px+pw-8 && my >= py+8 && my < py+28) { ui.helpOpen = false; return true; }
     if (mx >= px && mx <= px+pw && my >= py && my <= py+ph) return true;
     ui.helpOpen = false; return true;
@@ -1708,13 +2081,7 @@ function onPointerUp() { ui.drag = null; }
 function onWheel(e) {
   e.preventDefault();
   const mx = e.offsetX, my = e.offsetY;
-  const before = screenToWorld(mx, my);
-  if (e.deltaY < 0) ui.zoom = Math.min(3, ui.zoom + 1);
-  else ui.zoom = Math.max(1, ui.zoom - 1);
-  const after = screenToWorld(mx, my);
-  ui.camX += (before.x - after.x) * ui.zoom;
-  ui.camY += (before.y - after.y) * ui.zoom;
-  clampCam();
+  applyZoom(ui.zoom + (e.deltaY < 0 ? 1 : -1), mx, my);
 }
 
 function onKey(e, down) {
@@ -1789,15 +2156,17 @@ function bindInput() {
   let touchPan = null;
   canvas.addEventListener('touchstart', e => {
     e.preventDefault(); ensureAudio();
+    const rect = canvas.getBoundingClientRect();
     if (e.touches.length === 1) {
-      const rect = canvas.getBoundingClientRect();
       const mx = e.touches[0].clientX - rect.left, my = e.touches[0].clientY - rect.top;
       ui._longPress = { x: mx, y: my, t0: performance.now(), moved: false };
       if (ui.tool === 'road' || ui.tool === 'demolish') onPointerDown(mx, my, 0);
       else touchPan = { x: mx, y: my, camX: ui.camX, camY: ui.camY };
     } else if (e.touches.length === 2) {
       const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      ui._pinch = { d, zoom: ui.zoom }; touchPan = null;
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      ui._pinch = { d, zoom: ui.zoom, cx, cy }; touchPan = null;
     }
   }, { passive: false });
   canvas.addEventListener('touchmove', e => {
@@ -1805,8 +2174,10 @@ function bindInput() {
     const rect = canvas.getBoundingClientRect();
     if (e.touches.length === 2 && ui._pinch) {
       const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      ui.zoom = Math.max(1, Math.min(3, Math.round(ui._pinch.zoom * d / ui._pinch.d)));
-      clampCam(); return;
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      applyZoom(ui._pinch.zoom * d / ui._pinch.d, cx, cy);
+      return;
     }
     if (e.touches.length === 1) {
       const mx = e.touches[0].clientX - rect.left, my = e.touches[0].clientY - rect.top;
@@ -1841,14 +2212,21 @@ function init() {
   resize();
   window.addEventListener('resize', resize);
   bindInput();
-  if (window.matchMedia && window.matchMedia('(max-width: 800px)').matches) ui.zoom = 1;
+  ui.zoom = DEFAULTS.zoomDesktop;
   S().preload().then(() => requestAnimationFrame(frame));
 }
 
 window.MalyMagnatGame = {
   init, newGame, loadGame, saveGame, hasSave,
   getState: () => state, getUI: () => ui, tickDay,
-  DEFAULTS, BALANCE, BUILD_DEFS, placeBuilding, canBuild
+  DEFAULTS, BALANCE, BUILD_DEFS, placeBuilding, canBuild,
+  VERSION, FALLBACK_SEED, FONT5X7,
+  setZoom: (z, sx, sy) => applyZoom(z, sx != null ? sx : canvas.width / 2, sy != null ? sy : canvas.height / 2),
+  setMonth: (m) => { if (state) state.month = m; },
+  setYear: (y) => { if (state) state.year = y; },
+  getHouses: () => state && state.map.houses.map(h => ({ x: h.x, y: h.y, v: h.v })),
+  getSeed: () => state && state.seed,
+  uiMetrics, applyZoom, layoutCityHouses, isBuildLocked, barList, buildingSprite, seasonKey
 };
 })();
 
