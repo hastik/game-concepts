@@ -10,5 +10,17 @@
     "status": "prototyp",
     "created": "2026-10-29",
     "controls": "WASD/šipky chůze, E zařizování, N den/noc"
+  },
+  {
+    "path": "maly-magnat/",
+    "slug": "maly-magnat",
+    "title": "Malý magnát",
+    "description": "Útulná budovatelská ekonomika v pixel-artu: pěstuj pšenici, chovej slepice, mel mouku a peč chleba. Stav silnice, posílej náklaďáky a hlídej sezónní poptávku městečka.",
+    "file": "maly-magnat.html",
+    "thumbnail": "screenshot.png",
+    "tags": ["ekonomika", "budovatelská", "tycoon", "logistika", "cozy", "pixel-art", "simulace", "strategie", "single-player", "vanilla-js"],
+    "status": "playable",
+    "created": "2026-11-05",
+    "controls": "LMB stavba/výběr, tažení silnice, RMB/Esc zrušit, kolečko zoom, WASD posun, Space pauza, R silnice, X demolice, T trasy, F finance, 1–5 kategorie"
   }
 ]
