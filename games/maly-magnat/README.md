@@ -34,9 +34,14 @@
 4. **path_\* vs road_\*:** pěšiny jen dekorace; auta jezdí jen po `road_*`
 5. **Zimní sníh na střechách:** ano — zimní sprity `<id>_winter` / `<id>_winter_N` přes `MalyMagnatSprites.getBuilding` (žádné tónování); terénní `snow_overlay` ve vrstvě 7
 6. **Ikonky ve stavební liště:** skutečné 24×24 `build24_<id>` přes `buildIcon(id)`, kreslené celým číslem ×2 (nebo ×3 na širokém plátně) → 48/72 px; kravín ztlumený a zamčený do roku 2; pořadí podle `BUILD_BAR`
-7. **Font:** bitmapový 5×7 pro HUD, čísla, ceny v liště a plovoucí texty; monospace zůstává u delších textů (nápověda, panely)
+7. **Font:** bitmapový 5×7 (descender +1–2 px u g/j/p/q/y) pro HUD, čísla, ceny v liště a plovoucí texty; monospace zůstává u delších textů (nápověda, panely)
 
 ## Changelog
+
+### 1.1.1
+
+- Bitmapový font: `g` má descender a nejde splést s `s`; j/p/q/y taky pod účařím
+- Čitelnější česká diakritika (ě š č ř ž ý á í é ů ú)
 
 ### 1.1.0
 
@@ -55,7 +60,7 @@
 
 - Editor tras je zjednodušený (klikáním přidáváš zastávky; produkt u skladu výchozí pšenice)
 - Generativní hudba je minimalistická pentatonika
-- Bitmapový 5×7 font je hutný u některých českých diakritik (ý, ř)
+- Bitmapový font je pořád 5 px široký, háčky a čárky jsou jednopixelové
 - Konfety / prach jsou krátké sprite efekty bez fyziky
 - AI konkurenti, úvěry, více měst, vlaky — mimo rozsah v1 (viz design.md roadmap)
 - Bankrot nabízí načtení posledního save, ne speciální kvartální slot UI
